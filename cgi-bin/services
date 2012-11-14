@@ -1,0 +1,228 @@
+#!/usr/bin/env python 
+import web, json, sys, exceptions, re
+from decimal import Decimal
+from psycopg2 import ProgrammingError
+from dbconnect import dbconnect
+from datetime import datetime
+from orderedDict import OrderedDict
+import xml.etree.ElementTree as xml
+
+#
+
+urls = (
+  "/(.+)/(.+)", "getservice",
+  "/(.+)/", "getservices",
+  "/", "getschemas"
+  )
+
+class DopaServicesError(Exception):
+    pass  
+
+class DecimalEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, Decimal):
+            return float(obj)
+        return json.JSONEncoder.default(self, obj)
+
+class getschemas:
+    def GET(self):
+        try:
+            render = web.template.render('templates/')
+            conn = dbconnect("species_appuser")
+            conn.cur.callproc("utils.dopa_rest_getschemas")
+            schemas = conn.cur.fetchall()
+            schemasdict = [dict([('name', schema[0]), ('description', schema[1])]) for schema in schemas]
+            return render.getschemas(schemasdict, render.header(), render.footer())
+        
+        except (DopaServicesError, ProgrammingError):
+            return "DOPA Services Error: " + str(sys.exc_info())
+
+class getservices:
+    def GET(self, schemaname):
+        try:
+            render = web.template.render('templates/')
+            conn = dbconnect("species_appuser")
+            conn.cur.callproc("utils.dopa_rest_getservices", [schemaname])
+            services = conn.cur.fetchall()
+            servicesdict = [dict([('name', service[0]), ('description', getservicedescription(service[1]))]) for service in services]
+            return render.getservices(schemaname, servicesdict, render.header(), render.footer())
+
+        except (DopaServicesError, ProgrammingError):
+            return "DOPA Services Error: " + str(sys.exc_info())
+
+class getservice:
+    def GET(self, schemaname, servicename):
+        # if there are some parameters then the user is calling the service
+        if web.input():
+            return callservice(schemaname, servicename, web.ctx.query[1:]) #pass the querystring to preserve the order of the parameters - the web.input() collection does not preserve the order
+        else:
+            try:
+                render = web.template.render('templates/')
+                conn = dbconnect("species_appuser")
+                conn.cur.callproc("utils.dopa_rest_getservice", [servicename])
+                params = conn.cur.fetchall()
+                if (len(params) == 0):
+                    raise DopaServicesError('Service not found ' + servicename)
+                
+                # parse the description text to get the parameters descriptions - the parameter descriptions are encoded using {<param_desc>$<param_desc>$<param_desc> etc}
+                paramdesc = []
+                paramdescgroups = re.search('{.*}', params[0][1])
+                if (paramdescgroups):
+                    paramdesc = paramdescgroups.group(0)[1:-1].split("$")
+                # fill in the parameter descriptions if they have not been written
+                paramdesc[len(paramdesc):] = ['No description' for i in range(len(params) - len(paramdesc))] 
+                
+                # parse the function definition for default parameter values
+                paramdefs = []
+                paramdefsstr = params[0][5]
+                if (paramdefsstr.find('DEFAULT ') != -1):
+                    # get the position of the parameter names in the parameter definition string
+                    pos = [paramdefsstr.find(param[3] + ' ') for param in params if (param[2] == 'IN')]
+                    # add on the length of the parameter definition to get the last parameter definition
+                    pos.append(len(paramdefsstr))
+                    # get the parameter definitions as a list
+                    paramdefs = [paramdefsstr[pos[i]:pos[i + 1]] for i in range(len(pos) - 1)]
+                    # remove any trailing spaces with commas
+                    paramdefs = [(paramdef[:-2] if paramdef[-2:] == ', ' else paramdef) for paramdef in paramdefs]
+                    # remove the DEFAULT statement
+                    paramdefs = [('' if (paramdef.find('DEFAULT') == -1) else paramdef[paramdef.find('DEFAULT') + 8:]) for paramdef in paramdefs]
+                    # convert ARRAY[] syntax to () syntax
+                    paramdefs = [(paramdef if (paramdef.find('ARRAY')) else "(" + paramdef[6:-1] + ")") for paramdef in paramdefs]
+                # fill in the paramdefs
+                paramdefs[len(paramdefs):] = ['' for i in range(len(params) - len(paramdefs))]
+                # create a dictionary containing the parameter information
+                paramsdict = [dict([('mode', params[i][2]), ('name', params[i][3]), ('type', gettypefrompostgresql(params[i][4])), ('description', paramdesc[i]), ('default', paramdefs[i])]) for i in range(len(params))]
+                return render.getservice(schemaname, servicename, getservicedescription(params[0][1]), paramsdict, render.header(), render.footer())
+            
+            except (DopaServicesError):
+                return "DOPA Services Error: " + str(sys.exc_info())
+
+def callservice(schemaname, servicename, querystring):
+    # PREPARE THE QUERY PARAMETERS
+    # get the input parameters
+    params = OrderedDict([(q.split("=")[0], q.split("=")[1]) for q in querystring.split("&")])
+    # get the standard optional parameters from the url 
+    format = params.setdefault('format', 'json') 
+    fields = params.setdefault('fields', '')[1:-1].split(",") # fields will be passed as an array, e.g. (iucn_species_id,wdpa_id) - so remove these brackets
+    jsoncallback = params.setdefault('jsoncallback', None)
+    includemetadata = params.setdefault('includemetadata', 'true')
+    # remove the standard optional parameters from the dictionary so we are left with just the parameters required for the function
+    del (params['format'], params['fields'], params['jsoncallback'], params['includemetadata'])
+    # iterate through the query parameters converting array parameters into lists 
+    for key in params.keys():
+        if (params[key].find("(") > -1):
+            strlist = params[key][1:-1].split(",")
+            try:
+                i = float(strlist[0])
+            except ValueError, TypeError:
+                isnum = False
+            else:
+                isnum = True
+            if isnum:
+                params[key] = [int(s) for s in strlist]
+            else:
+                params[key] = strlist
+
+    try:
+        # PARAMETER MATCHING WITH THE POSTGRESQL FUNCTION
+        conn = dbconnect("species_appuser")
+        # get the parameters for the function from postgresql
+        conn.cur.callproc('utils.dopa_rest_getparams', [servicename])
+        # get the parameters as a string and split this into a list, e.g. wdpa_id integer, presence_id integer[] -->  ['wdpa_id integer', ' presence_id integer[]']
+        templateparams = conn.cur.fetchone()
+        if templateparams[0]:
+            templateparams = templateparams[0].split(',')  
+            # get the function parameters as a list
+            template = [templateparams[i].strip().split(" ")[0] for i in range(len(templateparams))]
+            # put the input parameters in the right order
+            params = OrderedDict([(template[i], params[template[i]]) for i in range(len(template)) if template[i] in params.keys()])
+        
+        # RUN THE QUERY
+        t1 = datetime.now()
+        conn.cur.callproc(schemaname + "." + servicename, params.values())
+        t2 = datetime.now()
+        rows = conn.cur.fetchall()
+        conn.cur.close()
+        
+        # METADATA SECTION OF RESPONSE
+        allfields = [d.name for d in conn.cur.description]
+        fieldcount = len(allfields)
+        if (fields == ['']): fields = allfields 
+        fieldsdict = [dict([("name", d.name), ("type", gettypefromtypecode(d.type_code))]) for d in conn.cur.description if (d.name in fields)]
+        if len(fieldsdict) != len(fields):
+            raise DopaServicesError('Invalid output fields')
+        msg = conn.cur.statusmessage
+        metadatadict = dict([("success", msg[:msg.index(" ")]), ("records", int(msg[msg.index(" ") + 1:])), ("idProperty", conn.cur.description[0].name), ("root", "records"), ("fields", fieldsdict), ("duration", str(t2 - t1))])    
+        
+        # RECORDS SECTION OF THE RESPONSE
+        colsRequired = [allfields.index(field) for field in fields]
+        if (format == 'json') | (format == 'array'):
+            if (format == 'json'):
+                recordsdict = [dict([(allfields[col], row[col]) for col in range(fieldcount) if (col in colsRequired)]) for row in rows]
+            else:
+                recordsdict = [[row[col] for col in range(fieldcount) if (col in colsRequired)] for row in rows]
+            json.encoder.FLOAT_REPR = lambda f: ("%.2f" % f)
+            if (includemetadata.lower() == 'true'):
+                responsejson = json.dumps(dict([("metadata", metadatadict), ("records", recordsdict)]), indent=1, cls=DecimalEncoder)
+            else: 
+                responsejson = json.dumps(dict([("records", recordsdict)]), indent=1, cls=DecimalEncoder)
+            if (jsoncallback):
+                web.header("Content-Type", "application/javascript") 
+                return jsoncallback + '(' + responsejson + ');'                 
+            else:
+                web.header("Content-Type", "application/json") 
+                return responsejson
+        
+        elif (format == 'xml'):
+            root = xml.Element('results')
+        #            THERE ARE ISSUES WITH THE XML SERIALISER PARSING INTEGERS AND IN THE FIELD TYPES THERE ARE INTEGERS SO THE METADATADICT OBJECT CAUSES THE XML PARSER TO FAIL AT THE MOMENT SO LEAVING OUT METADATA
+        #            if (includemetadata.lower() == 'true'):
+        #                return metadatadict
+        #                metadatanode = xml.Element('metadata', metadatadict)
+        #                root.append(metadatanode)
+        #                xmlfieldsdicts = [dict([("name", d.name), ("type", str(d.type_code))]) for d in conn.cur.description if (d.name in fields)] # element tree cannot serialise integers so we have to convert these to strings
+        #                fieldselements = [xml.Element('field', dictionary) for dictionary in xmlfieldsdicts]
+        #                fieldsnode = xml.Element('fields')
+        #                for fieldelement in fieldselements:
+        #                    fieldsnode.append(fieldelement)
+        #                metadatanode.append(fieldsnode)
+            recordsdicts = [dict([(allfields[col], str(row[col])) for col in range(fieldcount) if (col in colsRequired)]) for row in rows]
+            recordselements = [xml.Element('record', element) for element in recordsdicts]
+            recordsnode = xml.Element('records')
+            for recordelement in recordselements:
+                recordsnode.append(recordelement)
+            root.append(recordsnode)
+            web.header("Content-Type", "text/xml")
+            return xml.tostring(root)
+        
+        else:
+            raise DopaServicesError('Invalid response format')
+
+    except (DopaServicesError, ProgrammingError, exceptions.TypeError):
+        return "DOPA Services Error: " + str(sys.exc_info())
+        
+def gettypefromtypecode(typecode):
+    if (typecode in [16, 1000, 1560, 1561]): return "Boolean"
+    elif (typecode in [20, 21, 23, 26, 700, 701, 790, 1005, 1007, 1028, 1016, 1021, 1022, 1700]): return "Number"
+    elif (typecode in [18, 25, 1043, 1002, 1009, 1015, 1043]): return "String"
+    elif (typecode in [702, 703, 704, 1023, 1024, 1025, 1082, 1083, 1084, 1182, 1183, 1184, ]): return "Date"
+    elif (typecode in [21]): return "Array"
+    elif (typecode in [17, 22, 24, 27, 28, 29, 30]): return "Object"
+    elif (typecode in [2278]): return "Null"
+    else: return "Undefined"
+    
+def gettypefrompostgresql(postgresqltype):
+    if (postgresqltype.lower() in ['integer']): return "integer"
+    elif (postgresqltype.lower() in ['array']): return "array"
+    elif (postgresqltype.lower() in ['character varying']): return "string"
+    else: return "Unknown"
+
+def getservicedescription(fulldescription):
+    pos = fulldescription.find("{")
+    if pos > -1:
+        return fulldescription[:fulldescription.find("{")]
+    else:
+        return fulldescription
+
+if __name__ == "__main__":
+     app = web.application(urls, globals()).run()

@@ -1,0 +1,21 @@
+$def with (schemaname, services, header, footer)
+
+<html>
+	<head>
+		<title>DOPA Web Services</title>
+		<link rel="stylesheet" type="text/css" href="../../styles/styles.css" />
+	</head>
+	<body>
+		$:header
+		<h2><a href="../../services/">Schemas</a> | $schemaname[:1]$schemaname[1:2].upper()$schemaname[2:] Schema</h2>
+		$if services:
+			<table class="table" cellspacing="0"><tr><th>Service</th><th>Description</th></tr>
+			$for service in services:
+				$if service['name'][:3]=='get':
+					<tr><td><a href="$service['name']">$service['name']</a></td><td>$:service['description']</td></tr>
+			</table>
+		$else:
+		    No content
+		$:footer
+	</body>
+</html>

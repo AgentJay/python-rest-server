@@ -1,0 +1,18 @@
+$def with (schemas, header, footer)
+
+<html>
+	<head>
+		<title>DOPA Web Services</title>
+		<link rel="stylesheet" type="text/css" href="../styles/styles.css" />
+	</head> 
+	<body>
+		$:header
+		<h2>Schemas</h2>
+		$if schemas:
+			<table class="table" cellspacing="0"><tr><th>Schema</th><th>Description</th></tr>
+			$for schema in schemas:
+				<tr><td><a href="$schema['name']/">$schema['name'][:1]$schema['name'][1:2].upper()$schema['name'][2:]</a></td><td>$schema['description']</td></tr>
+			</table>
+		$:footer
+	</body>
+</html>

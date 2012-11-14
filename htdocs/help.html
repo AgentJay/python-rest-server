@@ -1,0 +1,139 @@
+<html>
+	<head>
+		<title>DOPA REST Services Directory Help</title>
+		<link rel="stylesheet" type="text/css" href="../styles/styles.css" />
+	</head> 
+	<body>
+		<h1>DOPA REST Services Directory Help</h1>
+		<h2><a name="background">Background</h2></h2>
+		<p>This document contains help documentation for the Digital Observatory of Protected Areas (DOPA) REST Services Directory. The REST Services Directory is a catalog of information services available through the DOPA initiative that can be used within information systems such as websites and client applications. The services provide a wide range of information about protected areas from species and habitat information to land cover and fire information. For more information about the DOPA initiative see <a href='http://dopa.jrc.ec.europa.eu/' target='_ext'>here</a>.</p>
+		<p>The purpose of the information services is to provide access to the indicators, analyses and other research products that the Joint Research Centre have developed in a number of related projects. These products have been derived from a range of data providers and partners and full metadata information about all of these datasets and the analytical methodologies is available here. &lt;TODO: Link to metadata&gt;</p>
+		<p>This help document provides information for both providers and consumers of the REST Services. For details on how to publish your data through REST services, see <a href="#publishing">here</a>. For details on how to access and use the services see the <a href="#consuming">following section</a>.</p>
+		<h2><a name="consuming">Using the REST Services</h2>
+		<p>There are many ways in which the REST Services can be consumed and used from applications, websites and tools etc. REST, short for Representational State Transfer, provides a simple, open Web interface to services hosted by the Joint Research Centre. 
+		All services exposed by the REST Services Directory are accessible through a hierarchy of endpoints or Uniform Resource Locators (URLs) for each service published at JRC. When using the REST Services, you typically start 
+		a the root level showing all of the schemas available within the DOPA REST Services:</p>
+		<img src='images/doc1.png'>
+		<p>The next level down in the Services Directory is the schema level which shows you the names of all of the information services within that particular schema:</p>
+		<img src='images/doc2.png'>
+		<p>The final level in the REST Services hierarchy is the service level which includes detailed information on each individual service in the directory. This page includes a description of the service, the input and output parameters and some example calls. 
+		The url for the service page is the endpoint for the service and this is the address that you will use to consume the service. In order to consume the service you will also need to pass in a number of parameters which are described in the next section.</p>
+		<img src='images/doc3.png'>
+		<h3>REST request</h3>
+		<p>REST requests can be creating using the information on the service page. The list of parameters for the service includes the input parameters that you must pass to the service and the output parameters that are returned from the server (if specified in the <span class='param'>fields</span> parameter). For the input parameters, a service 
+		can have mandatory parameters and optional parameters (the service name is in italics for optional parameters). For each of the parameters the following information is given:</p>
+		<table class="table" cellspacing="0">
+			<tr><td><b>Name</td><td>The name of the service (optional parameters are shown in italics)</td></tr>
+			<tr><td><b>Description</b></td><td>A full description of the service</td></tr>
+			<tr><td><b>Type</b></td><td>The data type of the parameter. This value can be one of the following: integer, array or string. For more information see parameter types.</td></tr>
+			<tr><td><b>Default</b></td><td>(<i>input only</i>) If a parameter is optional then a default value will be specified in this column. Default values are values that will be included in the REST request if not explicitly specified</td></tr>
+		</table>
+		<h4>Parameter data type</h4>
+		<p>All services contain parameters with specific data types which must be complied with in order to use the services succesfully. The following data types are supported:</p>
+		<table class="table" cellspacing="0">
+			<tr><th>Data type</th><th>Represents</th><th>Encoding</th></tr>
+			<tr><td>Integer</td><td>Positive 4 byte integer value</td><td>None</td></tr>
+			<tr><td>String</td><td>Variable length characer data</td><td>None</td></tr>
+			<tr><td>Array</td><td>Variable length array of strings or integers</td><td>Using brackets: (1,2,3)</td></tr>
+		</table>
+		<p>For example, the following REST Service call includes two parameters (one a mandatory integer and one an optional array of numbers) and returns a list of species for a particular protected area:</p>
+		 <div class='code'>http://dopa-services.jrc.ec.europa.eu/services/especies/getpaspecieslist?wdpa_id=785&presence_id=(1,2)</div>
+		<h4>Standard optional parameters</h4>
+		<p>For each REST service there are a number of standard optional parameters that can be specified in the REST service call. </p>
+		<table class="table" cellspacing="0">
+			<tr><th>Name</th><th>Description</th><th>Default</th></tr>
+			<tr><td>format</td><td>The reponse format</td><td>json</td></tr>
+			<tr><td>fields</td><td>The list of fields to be returned</td><td>(*)</td></tr>
+			<tr><td>includemetadata</td><td>Sets whether to include a metadata section in the response which includes summary information about the results</td><td>true</td></tr>
+			<tr><td>jsoncallback</td><td>The name of a javascript function to call when the service call returns asynchronously</td><td>''</td></tr>
+		</table>
+		<p>The <span class='param'>format</span> parameter is used to specify the response format - see the Response section for more information. If an invalid value is used then an 'Invalid response format' error is returned. The default value is json.</p>
+		<p>The <span class='param'>fields</span> parameter is used to determine the fields that are returned and is encoded as an array - these must be one or more of the output parameters listed below. If an invalid field is requested then an 
+		'Invalid output fields' error is returned. The default value is to return all fields</p>
+
+		<p>The <span class='param'>includemetadata</span> parameter sets whether to include a metadata section in the response which includes summary information about the results. See the metadata section for more information. The default value is </p>
+		<p>The <span class='param'>jsoncallback</span> parameter is used to provide the name of a javascript function to call when the service call returns asynchronously.</p>
+		<p>For example, the following REST Service call includes values for all optional parameters :</p>
+		<div class="code">http://dopa-services.jrc.ec.europa.eu/services/especies/getpaspecieslist?wdpa_id=785&presence_id=(1,2)&format=json&fields=(iucn_species_id)&includemetadata=false&jsoncallback=retrieved</div>
+		<h4>Specifying parameter values</h4>
+		<p>Parameter values for the REST Service calls can be done by simply appending the parameter values to the end of the service end point as a set of key/value pairs preceeded by a question mark. There are example calls in each of the service pages that show the syntax for calling a particular service (both using mandatory and optional parameters). All mandatory parameter values must be specified, and all data types must be adhered to otherwise the service call will fail. Parameters can be specified in any order (both mandatory and optional) and 
+			any parameters whose names do not match those of the input/output parameters will be ignored. If mandatory parameters are missing or values are invalid then the server will return an error.</p>
+		<h3>REST response</h3>
+		<p>The REST response from the server will include all of the data and also an optional metadata section (specified by the <span class='param'>includemetadata</span> parameter). The sample below shows a typical json response:</p>
+		<div class='code'>
+			{<br/>&nbsp;"records":&nbsp;[<br/>&nbsp;&nbsp;{<br/>&nbsp;&nbsp;&nbsp;"kingdom":&nbsp;"ANIMALIA",&nbsp;<br/>&nbsp;&nbsp;&nbsp;"status":&nbsp;"DD",&nbsp;<br/>&nbsp;&nbsp;&nbsp;"iucn_species_id":&nbsp;556,&nbsp;<br/>&nbsp;&nbsp;&nbsp;"family":&nbsp;"SCIURIDAE",&nbsp;<br/>&nbsp;&nbsp;&nbsp;"taxon":&nbsp;"Aeromys&nbsp;tephromelas",&nbsp;<br/>&nbsp;&nbsp;&nbsp;"order":&nbsp;"RODENTIA",&nbsp;<br/>&nbsp;&nbsp;&nbsp;"presence_id":&nbsp;1,&nbsp;<br/>&nbsp;&nbsp;&nbsp;"phylum":&nbsp;"CHORDATA",&nbsp;<br/>&nbsp;&nbsp;&nbsp;"assessed":&nbsp;"2008-06-30&nbsp;00:00:00",&nbsp;<br/>&nbsp;&nbsp;&nbsp;"class":&nbsp;"MAMMALIA"<br/>&nbsp;&nbsp;},&nbsp;<br/>&nbsp;&nbsp;{<br/>&nbsp;&nbsp;&nbsp;"kingdom":&nbsp;"ANIMALIA",&nbsp;<br/>&nbsp;&nbsp;&nbsp;"status":&nbsp;"DD",&nbsp;<br/>&nbsp;&nbsp;&nbsp;"iucn_species_id":&nbsp;557,&nbsp;<br/>&nbsp;&nbsp;&nbsp;"family":&nbsp;"SCIURIDAE",&nbsp;<br/>&nbsp;&nbsp;&nbsp;"taxon":&nbsp;"Aeromys&nbsp;thomasi",&nbsp;<br/>&nbsp;&nbsp;&nbsp;"order":&nbsp;"RODENTIA",&nbsp;<br/>&nbsp;&nbsp;&nbsp;"presence_id":&nbsp;1,&nbsp;<br/>&nbsp;&nbsp;&nbsp;"phylum":&nbsp;"CHORDATA",&nbsp;<br/>&nbsp;&nbsp;&nbsp;"assessed":&nbsp;"2008-06-30&nbsp;00:00:00",&nbsp;<br/>&nbsp;&nbsp;&nbsp;"class":&nbsp;"MAMMALIA"<br/>&nbsp;&nbsp;},&nbsp;
+			<br/>&nbsp;&nbsp;{<br/>..<br/>..<br/>&nbsp;&nbsp;{<br/>&nbsp;&nbsp;&nbsp;"kingdom":&nbsp;"ANIMALIA",&nbsp;<br/>&nbsp;&nbsp;&nbsp;"status":&nbsp;"LC",&nbsp;<br/>&nbsp;&nbsp;&nbsp;"iucn_species_id":&nbsp;181432,&nbsp;<br/>&nbsp;&nbsp;&nbsp;"family":&nbsp;"Muscicapidae",&nbsp;<br/>&nbsp;&nbsp;&nbsp;"taxon":&nbsp;"Cyornis&nbsp;banyumas",&nbsp;<br/>&nbsp;&nbsp;&nbsp;"order":&nbsp;"Passeriformes",&nbsp;<br/>&nbsp;&nbsp;&nbsp;"presence_id":&nbsp;2,&nbsp;<br/>&nbsp;&nbsp;&nbsp;"phylum":&nbsp;"CHORDATA",&nbsp;<br/>&nbsp;&nbsp;&nbsp;"assessed":&nbsp;"2010-08-28",&nbsp;<br/>&nbsp;&nbsp;&nbsp;"class":&nbsp;"AVES"<br/>&nbsp;&nbsp;}<br/>&nbsp;],&nbsp;<br/>&nbsp;"metadata":&nbsp;{<br/>&nbsp;&nbsp;"success":&nbsp;"SELECT",&nbsp;<br/>&nbsp;&nbsp;"fields":&nbsp;[<br/>&nbsp;&nbsp;&nbsp;{<br/>&nbsp;&nbsp;&nbsp;&nbsp;"type":&nbsp;"Number",&nbsp;<br/>&nbsp;&nbsp;&nbsp;&nbsp;"name":&nbsp;"iucn_species_id"<br/>&nbsp;&nbsp;&nbsp;},&nbsp;<br/>&nbsp;&nbsp;&nbsp;{<br/>&nbsp;&nbsp;&nbsp;&nbsp;"type":&nbsp;"String",&nbsp;<br/>&nbsp;&nbsp;&nbsp;&nbsp;"name":&nbsp;"taxon"<br/>&nbsp;&nbsp;&nbsp;},&nbsp;<br/>&nbsp;&nbsp;&nbsp;{<br/>&nbsp;&nbsp;&nbsp;&nbsp;"type":&nbsp;"Number",&nbsp;<br/>&nbsp;&nbsp;&nbsp;&nbsp;"name":&nbsp;"presence_id"<br/>&nbsp;&nbsp;&nbsp;},&nbsp;<br/>&nbsp;&nbsp;&nbsp;{<br/>&nbsp;&nbsp;&nbsp;&nbsp;"type":&nbsp;"String",&nbsp;<br/>&nbsp;&nbsp;&nbsp;&nbsp;"name":&nbsp;"kingdom"<br/>&nbsp;&nbsp;&nbsp;},&nbsp;<br/>&nbsp;&nbsp;&nbsp;{<br/>&nbsp;&nbsp;&nbsp;&nbsp;"type":&nbsp;"String",&nbsp;<br/>&nbsp;&nbsp;&nbsp;&nbsp;"name":&nbsp;"phylum"<br/>&nbsp;&nbsp;&nbsp;},&nbsp;<br/>&nbsp;&nbsp;&nbsp;{<br/>&nbsp;&nbsp;&nbsp;&nbsp;"type":&nbsp;"String",&nbsp;<br/>&nbsp;&nbsp;&nbsp;&nbsp;"name":&nbsp;"class"<br/>&nbsp;&nbsp;&nbsp;},&nbsp;<br/>&nbsp;&nbsp;&nbsp;{<br/>&nbsp;&nbsp;&nbsp;&nbsp;"type":&nbsp;"String",&nbsp;<br/>&nbsp;&nbsp;&nbsp;&nbsp;"name":&nbsp;"order"<br/>&nbsp;&nbsp;&nbsp;},&nbsp;<br/>&nbsp;&nbsp;&nbsp;{<br/>&nbsp;&nbsp;&nbsp;&nbsp;"type":&nbsp;"String",&nbsp;<br/>&nbsp;&nbsp;&nbsp;&nbsp;"name":&nbsp;"family"<br/>&nbsp;&nbsp;&nbsp;},&nbsp;<br/>&nbsp;&nbsp;&nbsp;{<br/>&nbsp;&nbsp;&nbsp;&nbsp;"type":&nbsp;"String",&nbsp;<br/>&nbsp;&nbsp;&nbsp;&nbsp;"name":&nbsp;"status"<br/>&nbsp;&nbsp;&nbsp;},&nbsp;<br/>&nbsp;&nbsp;&nbsp;{<br/>&nbsp;&nbsp;&nbsp;&nbsp;"type":&nbsp;"String",&nbsp;<br/>&nbsp;&nbsp;&nbsp;&nbsp;"name":&nbsp;"assessed"<br/>&nbsp;&nbsp;&nbsp;}<br/>&nbsp;&nbsp;],&nbsp;<br/>&nbsp;&nbsp;"records":&nbsp;709,&nbsp;<br/>&nbsp;&nbsp;"duration":&nbsp;"0:00:00.017569",&nbsp;<br/>&nbsp;&nbsp;"idProperty":&nbsp;"iucn_species_id",&nbsp;<br/>&nbsp;&nbsp;"root":&nbsp;"records"<br/>&nbsp;}<br/>}<br/>	
+		</div>
+		<h4>Response format</h4>
+		<p>The <span class='param'>format</span> parameter in the REST service call 
+		determines the format of the returned information and can be one of three values: json, array or xml. The array format is the same as the json format except that the field names are not repeated for each record thus keeping the size of the return data to a minimum. The field names can be retrieved using the metadata section of the response. The xml format does not include a metadata section.</p>
+		<h4>Records section</h4>
+		<p>The records section of the response includes all of the data requested by the REST service call as an array of rows. Each row contains the information requested in the <span class='param'>fields</span> parameter, or all fields if the <span class='param'>fields</span>  parameter is not specified. All data will be encoded using the standard encoding for that format.</p>
+		<h4>Metadata section</h4>
+		<p>At the end of the records section there is an optional metadata section (this section will only be present if the <span class='param'>includemetadata</span> parameter is true). The metadata section includes information about the actual REST 
+		service request and includes a fields section which describes all the returned fields and their data types together with a number of other parameters:</p>
+		<table class="table" cellspacing="0">
+			<tr><th>Name</th><th>Description</th></tr>
+			<tr><td>success</td><td>SELECT if the service is a simple select statement</td></tr>
+			<tr><td>records</td><td>The total number of records returned within the records section</td></tr>
+			<tr><td>duration</td><td>The duration of the query on the database server (NOTE: this is not the duration of the web response which may be considerably longer due to network issues)</td></tr>
+			<tr><td>idProperty</td><td>The name of the field to use as the unique identifier for the returned data. This field can be used in data aware controls.</td></tr>
+			<tr><td>root</td><td>The name of the root element or container in the response.</td></tr>
+		</table>
+		<p>The metadata section can be used by developers for working with the schema of the response.</p>
+		<h3><a name="websites">Consuming REST services in websites</a></h3>
+		<p>REST services can be accessed and used in websites using Javascript by using native Javascript HTTP GET methods or by using Javascript Frameworks, like jQuery or Dojo. The following simple example HTML page shows you how to request a list of species for 
+			a protected area and show the number of species found together with a list. The example uses Dojo:</p>
+		<div class="code">&lt;!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd"&gt;<br/>&lt;html xmlns="http://www.w3.org/1999/xhtml" lang="en"&gt;<br/>&nbsp;&lt;head&gt;<br/>&nbsp;&nbsp;&lt;meta http-equiv="Content-Type" content="text/html; charset=utf-8" /&gt;<br/>&nbsp;&nbsp;&lt;title&gt;DOPA REST Client&lt;/title&gt;<br/>&nbsp;&nbsp;&lt;script src="//ajax.googleapis.com/ajax/libs/dojo/1.8.1/dojo/dojo.js" data-dojo-config="async: true"&gt;&lt;/script&gt;<br/>&nbsp;&nbsp;&lt;script&gt;<br/>&nbsp;&nbsp;&nbsp;require(["dojo/request/script", "dojo/_base/array", "dojo/dom"], function(script, arrayUtil, dom) {<br/>&nbsp;&nbsp;&nbsp;&nbsp;script.get("http://dopa-services.jrc.ec.europa.eu/services/especies/getpaspecieslist?wdpa_id=785", {<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;jsonp : "jsoncallback"<br/>&nbsp;&nbsp;&nbsp;&nbsp;}).then(function(response) {<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;species =''; <br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;arrayUtil.forEach(response['records'], function(item){<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;species += item.taxon + '&lt;br&gt;';<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;});<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dom.byId("feedback").innerHTML = "There are " + response['metadata'].records + " species:&lt;br/&gt;" + species;<br/>&nbsp;&nbsp;&nbsp;&nbsp;}, function(err) {<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;// Handle the error condition<br/>&nbsp;&nbsp;&nbsp;&nbsp;});<br/>&nbsp;&nbsp;&nbsp;});<br/>&nbsp;&nbsp;&lt;/script&gt;<br/>&nbsp;&lt;/head&gt;<br/>&nbsp;&lt;body&gt;<br/>&nbsp;&nbsp;&lt;div id='feedback'&gt;&lt;/div&gt;&nbsp;&nbsp;<br/>&nbsp;&lt;/body&gt;<br/>&lt;/html&gt;<br/><br/></div>
+		<h3><a name="desktop">Consuming REST services in desktop tools</a></h3>
+		<p>The REST services can also be used in desktop applications, such as Microsoft Office, by using the service endpoint. For many desktop applications the <span class='param'>format</span> parameter should specified as xml. </p>
+		<p>The following walkthrough shows you how to use the REST services in Microsoft Excel 2010 by retrieving a list of species for a protected area:</p>
+		<ol>
+			<li>Open Microsoft Excel 2010 and click on the Data tab</li>
+			<li>Click on 'From Other Sources' and select 'From XML Data Import'</li>
+			<li>In the File name text box, enter the endpoint of the REST service that contains the data you require (e.g. http://dopa-services.jrc.ec.europa.eu/services/especies/getpaspecieslist?wdpa_id=785&presence_id=(2)&format=xml)</li>
+			<li>Click Open and when prompted select where you want to put the data</li>
+			<li>The data is imported into Excel as a spreadsheet</li>
+		</ol>
+		<h2><a name="publishing">Publishing Services</a></h2>
+		<h3>Background</h3>
+		<p>The DOPA REST Services Directory makes available in HTML format, functions from a Postgresql database. It supports the following features to expose your data as a REST service:</p>
+		<ul>
+			<li>Autogenerates HTML pages from schemas and functions in a Postgresql database</li>
+			<li>Autogenerates descriptions for functions and function parameters based on COMMENTS in the database</li>
+			<li>Autogenerates a service page for each function in a postgresql schema including information on the parameters, descriptions, types and default values</li>
+			<li>Autogenerates sample REST service calls for each service</li>
+		</ul>
+		<p>To take advantage of these features you simply need to create a function in Postgresql with a description. Optionally you can add additional information to the funtion such as parameter descriptions.</p>
+		<h3>Step-by-step service publishing</h3>
+		<h4>Create the Function to publish</h4>
+		<p>In Postgresql create a function to retrieve data within a schema which starts with an 'e' (optionally with a number of input parameters). This function should be prefixed with the word 'get' to stress that it is a read-only function - currently only services that begin with 'get..' are shown in the REST Services Directory.
+			In addition, the function must be accessible using the app_user account. </p>
+		<h4>Define the return type</h4>
+		<p>If you want to return simple scalar data then define the output as a simple data type. For example:</p>
+		<div class="code">CREATE OR REPLACE FUNCTION getcountryspeciescount(country_id integer, presence_id integer[]) RETURNS bigint AS ..</div>
+		<p>To return data with a specific schema, define a TABLE return data type (see <a href='http://www.postgresql.org/docs/9.1/static/sql-createfunction.html' target='_ext'>here</a> for more information). For example:</p>
+		<div class="code">CREATE OR REPLACE FUNCTION getirreplacibilityindices(IN wdpa_id integer) RETURNS TABLE(taxonomic_group character varying, irreplacibility_score double precision) AS ..</div>
+		<h4>Define the default input parameters</h4>
+		<p>If you want to include default parameters in your REST service then you need to implement them in your function. For example:</p>
+		<div class="code">CREATE OR REPLACE FUNCTION getcountryspeciescount(country_id integer, presence_id integer[] DEFAULT ARRAY[1,2,3]) RETURNS bigint AS ..</div>
+		<p>NOTE: There is a bug in pgAdmin that prevents you from recreating a function with a default value of ARRAY[1,2,3]. You will need to edit the CREATE script that is generated by pgAdmin to correctly create a function with a default value of an ARRAY.</p>
+		<h4>Write a description for the function</h4>
+		<p>By default if a function is not commented then it will not be shown in the Services Directory. Create comments for functions using the usual COMMENT statement. For example:</p>
+		<div class="code">COMMENT ON FUNCTION getspeciespalist(bigint) IS 'Returns a list of protected areas that a species range intersects with.';</div>
+		<h4>Write a description for the function parameters (<i>optional</i>)</h4>
+		<p>There is currently no mechanism to provide comments or descriptions for function parameters in Postgresql so a workaround has had to be developed which involves writing the comments for the function parameters in the comment for the function. The syntax for doing this is:</p>
+		<div class="code">COMMENT ON FUNCTION &lt;<i>functionname</i>&gt; IS '&lt;<i>function description</i>&gt; {&lt;<i>param description 1</i>&gt;$&lt;<i>param description 2</i>&gt;$&lt;<i>param description 3</i>&gt; etc. }';</div>
+		<p>Parameter descriptions are given inside braces {} and each parameter description is separated using a dollar sign $. These descriptions are optional and if they are not given then 'No Description' appears alongside the parameter in the REST Services Directory.
+		Parameter descriptions can also include HTML markup and so, for example, you can include links in your descriptions for functions or function parameters. However, all apostrophes will need to be escaped using the Postgresql escaping of a single quote. So for
+		example, the following comment includes full escaping to include hyperlinks in the COMMENT for a function:</p>
+		<div class="code">COMMENT ON FUNCTION getspeciespalist(bigint) IS 'Returns a list of protected areas that a species range intersects with.{IUCN Species Identifier from the Red List website. To find the IUCN Species Identifier, search for a species and 
+			then look for the number in the URL, e.g. Orang Utan is 17975$The unique identifier for the protected area as shown in the protectedplanet.net website. See the &lt;a href=''http://protectedplanet.net'' target=''_protectedplanet''/&gt;Protected Planet 
+			website&lt;/a&gt; for more information$The country for the protected area$The name of the protected area$The designation for the protected area$The IUCN Category for the protected area taken from the following values: 
+			&lt;br/&gt;Ia: Strict Nature Reserve, Ib: Wilderness Area, II: National Park, III: Natural Monument or Feature, IV: Habitat/Species Management Area, V: Protected Landscape/Seascape, VI: Protected area with sustainable use of natural resources 
+			(see &lt;a href=''http://www.unep-wcmc.org/iucn-protected-area-management-categories_591.html'' target=''wcmc''&gt;here&lt;/a&gt; for more information)}';</div>
+		<p>If only some parameters have a description available then all of the rest of the parameters will appear with 'No Description' beside the parameter name in the Services Directory.</p>
+		<br/><br/>
+		<p>For comments/amendments please email: <a href="mailto:andrew.cottam@jrc.ec.europa.eu">andrew.cottam@jrc.ec.europa.eu</a></p>
+	</body>
+</html>
