@@ -1,23 +1,4 @@
-$def with (schemaname, servicename, servicedesc, parameters, header, footer)
-$ inparams = [p for p in parameters if (p['mode'] == 'IN')]                          #get a list of all of the input parameters
-$ outparams = [p for p in parameters if (p['mode'] == 'OUT')]						 #get a list of all of the output parameters
-
-$def getqueryparams(params, queryparams):
-	$for param in params:
-		$ value = "1"
-		$if (param['name'] in ['country_id','countryid']):
-			$ value = "458"
-		$elif (param['name'] in ['wdpa_id','wdpaid']):
-			$ value = "785" 
-		$elif (param['name'] in ['iucn_species_id','species_id','speciesid']):
-			$ value = "17975"
-		$elif (param['name'] in ['ecoregionid']):
-			$ value = "10122"
-		$if (param['type']=='array'):
-			$ queryparams.append(param['name'] + "=(1,2)")
-		$else:
-			$ queryparams.append(param['name'] + "=" + value)
-	
+$def with (schemaname, servicename, servicedesc, inparams, outparams, header, footer)
 <html>
 	<head>
 		<title>DOPA Web Services</title>
@@ -31,7 +12,7 @@ $def getqueryparams(params, queryparams):
 		
 		$if inparams:
 			<tr><td></td><th colspan="4">Input Parameters</th></tr>
-			<tr><td></td><td class="smallth" style="min-width: 100px">Name</td><td class="smallth">Description</td><td class="smallth" style="min-width: 140px">Type</td><td class="smallth" style="min-width: 60px">Default</td></tr>
+			<tr><td></td><td class="smallth" style="min-width: 100px">Name</td><td class="smallth">Description</td><td class="smallth" style="min-width: 140px">Type</td><td class="smallth" style="min-width: 60px">Default value</td></tr>
 				
 			$for inparam in inparams:
 				$if inparam['default']=='':
@@ -40,9 +21,10 @@ $def getqueryparams(params, queryparams):
 					<tr><td></td><td><i>$inparam['name']</i></td><td>$:inparam['description'] (optional)</td><td>$inparam['type']</td><td>$:inparam['default']</td></tr>
 			<tr><td></td><td><i>format</i></td><td>The reponse format (optional)</td><td>string (json | array | xml)</td><td>json</td></tr>
 			$if outparams:
-				<tr><td></td><td><i>fields</i></td><td>The list of fields to be returned - these must be one or more of the output parameters listed below (optional)</td><td>array</td><td>(*)</td></tr>
+				<tr><td></td><td><i>fields</i></td><td>The list of fields to be returned - these must be one or more of the output parameters listed below (optional)</td><td>array</td><td>all fields</td></tr>
 			<tr><td></td><td><i>includemetadata</i></td><td>Sets whether to include a metadata section in the  response which includes summary information about the results (optional)</td><td>string (true | false)</td><td>true</td></tr>
-			<tr><td></td><td><i>jsoncallback</i></td><td>The name of a javascript function to call when the service call returns asynchronously (optional)</td><td>string</td><td>''</td></tr>
+			<tr><td></td><td><i>parseparams</i></td><td>Sets whether to parse the input parameters and raise an error if they are not valid (optional)</td><td>string (true | false)</td><td>true</td></tr>
+			<tr><td></td><td><i>jsoncallback</i></td><td>The name of a javascript function to call when the service call returns asynchronously (optional)</td><td>string</td><td></td></tr>
 		
 		$if outparams:		
 			<tr><td></td><th colspan="4">Output Parameters</th></tr>
@@ -51,31 +33,57 @@ $def getqueryparams(params, queryparams):
 			$for outparam in outparams: 
 				<tr><td></td><td>$outparam['name']</td><td>$:outparam['description']</td><td colspan="2">$outparam['type']</td></tr>
 			
-		$if servicename[:3]=='get':
-			<tr><td></td><th colspan="4">Example calls</th></tr>
-				
-			$ querystring = "?"
-			$ mandatoryquerystring = "?"
-			$if len(inparams)!=0:
-				$ queryparams = []
-				$# build the mandatory parameters for the query string
-				$ getqueryparams([p for p in inparams if (p['default']== '')], queryparams)
-				$ mandatoryquerystring = "?" + "&".join([param for param in queryparams])
-				$# build the optional parameters for the query string
-				$ getqueryparams([p for p in inparams if (p['default']!= '')], queryparams)
-				$ querystring = "?" + "&".join([param for param in queryparams])
-			$if mandatoryquerystring!='?':		
-				<tr><td></td><td colspan="4"><a href='$mandatoryquerystring' target='__examplecall' title="Example call" class="example">$mandatoryquerystring</a></td></tr>
-			$if len(mandatoryquerystring)!=len(querystring):
-				<tr><td></td><td colspan="4"><a href='$querystring' target='__examplecall' title="Example call" class="example">$querystring</a></td></tr>
-			$if querystring!='?': 
-				$ prefix = querystring + '&' 
-			$else:
-				$ prefix = querystring
-			<tr><td></td><td colspan="4"><a href='$(prefix)format=xml' target='__examplecall' title="Example call" class="example">$(prefix)format=xml</a></td></tr>
-			<tr><td></td><td colspan="4"><a href='$(prefix)format=array&includemetadata=false' target='__examplecall' title="Example call" class="example">$(prefix)format=array&includemetadata=false</a></td></tr>
-			$if (len(outparams)>0):
-				<tr><td></td><td colspan="4"><a href='$(prefix)format=json&fields=($outparams[0]['name'])' target='__examplecall' title="Example call" class="example">$(prefix)format=json&fields=($outparams[0]['name'])</a></td></tr>
+		<tr><td></td><th colspan="4">Example calls</th></tr>
+		<tr><td></td><td colspan="4" class="smallth">Mandatory parameters</td></tr>
+			
+		$def getqueryparams(params, queryparams):
+			$for param in params:
+				$ value = "1"
+				$if (param['name'] in ['country_id','countryid']):
+					$ value = "458"
+				$elif (param['name'] in ['wdpa_id','wdpaid']):
+					$ value = "785" 
+				$elif (param['name'] in ['iucn_species_id','species_id','speciesid']):
+					$ value = "17975"
+				$elif (param['name'] in ['ecoregionid']):
+					$ value = "10122"
+				$elif (param['name'] in ['startdate']):
+					$ value = "20120101"
+				$elif (param['name'] in ['enddate']):
+					$ value = "20121221"
+				$if (param['type']=='array'):
+					$if (param['default']!=''):
+						$if ',' in param['default']:
+							$ value = param['default'].split(',')[0] + ',' + param['default'].split(',')[1]
+						$else:
+							$ value = param['default']
+					$else:
+						$ value = "1,2"
+				$ queryparams.append(param['name'] + "=" + value)
+
+		$ querystring = "?"
+		$ mandatoryquerystring = "?"
+		$if inparams:
+			$ queryparams = []
+			$# build the mandatory parameters for the query string
+			$ getqueryparams([p for p in inparams if (p['default']== '')], queryparams)
+			$ mandatoryquerystring = "?" + "&".join([param for param in queryparams])
+			$# build the optional parameters for the query string
+			$ getqueryparams([p for p in inparams if (p['default']!= '')], queryparams)
+			$ querystring = "?" + "&".join([param for param in queryparams])
+		$if mandatoryquerystring!='?':		
+			<tr><td></td><td colspan="4"><a href='$mandatoryquerystring' target='__examplecall' title="Example call" class="example">$mandatoryquerystring</a></td></tr>
+		<tr><td></td><td colspan="4" class="smallth">Optional parameters</td></tr>
+		$if len(mandatoryquerystring)!=len(querystring):
+			<tr><td></td><td colspan="4"><a href='$querystring' target='__examplecall' title="Example call" class="example">$querystring</a></td></tr>
+		$if querystring!='?': 
+			$ prefix = querystring + '&' 
+		$else:
+			$ prefix = querystring
+		<tr><td></td><td colspan="4"><a href='$(prefix)format=xml' target='__examplecall' title="Example call" class="example">$(prefix)format=xml</a></td></tr>
+		<tr><td></td><td colspan="4"><a href='$(prefix)format=array&includemetadata=false' target='__examplecall' title="Example call" class="example">$(prefix)format=array&includemetadata=false</a></td></tr>
+		$if (len(outparams)>0):
+			<tr><td></td><td colspan="4"><a href='$(prefix)format=json&fields=$outparams[0]['name']' target='__examplecall' title="Example call" class="example">$(prefix)format=json&fields=$outparams[0]['name']</a></td></tr>
 		</table>
 		
 		$:footer		

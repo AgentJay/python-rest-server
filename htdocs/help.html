@@ -26,7 +26,7 @@
 			<tr><td><b>Name</td><td>The name of the service (optional parameters are shown in italics)</td></tr>
 			<tr><td><b>Description</b></td><td>A full description of the service</td></tr>
 			<tr><td><b>Type</b></td><td>The data type of the parameter. This value can be one of the following: integer, array or string. For more information see parameter types.</td></tr>
-			<tr><td><b>Default</b></td><td>(<i>input only</i>) If a parameter is optional then a default value will be specified in this column. Default values are values that will be included in the REST request if not explicitly specified</td></tr>
+			<tr><td><b>Default</b></td><td>(<i>input only</i>) If a parameter is optional then a default value will be specified in this column. Default values are values that will be included in the REST request if not explicitly specified. </td></tr>
 		</table>
 		<h4>Parameter data type</h4>
 		<p>All services contain parameters with specific data types which must be complied with in order to use the services succesfully. The following data types are supported:</p>
@@ -34,16 +34,16 @@
 			<tr><th>Data type</th><th>Represents</th><th>Encoding</th></tr>
 			<tr><td>Integer</td><td>Positive 4 byte integer value</td><td>None</td></tr>
 			<tr><td>String</td><td>Variable length characer data</td><td>None</td></tr>
-			<tr><td>Array</td><td>Variable length array of strings or integers</td><td>Using brackets: (1,2,3)</td></tr>
+			<tr><td>Array</td><td>Variable length array of strings or integers</td><td>Using commas to separate the items: 1,2,3 or 'CR','NT'</td></tr>
 		</table>
 		<p>For example, the following REST Service call includes two parameters (one a mandatory integer and one an optional array of numbers) and returns a list of species for a particular protected area:</p>
-		 <div class='code'>http://dopa-services.jrc.ec.europa.eu/services/especies/getpaspecieslist?wdpa_id=785&presence_id=(1,2)</div>
+		 <div class='code'>http://dopa-services.jrc.ec.europa.eu/services/especies/getpaspecieslist?wdpa_id=785&presence_id=1,2</div>
 		<h4>Standard optional parameters</h4>
 		<p>For each REST service there are a number of standard optional parameters that can be specified in the REST service call. </p>
 		<table class="table" cellspacing="0">
 			<tr><th>Name</th><th>Description</th><th>Default</th></tr>
 			<tr><td>format</td><td>The reponse format</td><td>json</td></tr>
-			<tr><td>fields</td><td>The list of fields to be returned</td><td>(*)</td></tr>
+			<tr><td>fields</td><td>The list of fields to be returned</td><td>all fields</td></tr>
 			<tr><td>includemetadata</td><td>Sets whether to include a metadata section in the response which includes summary information about the results</td><td>true</td></tr>
 			<tr><td>jsoncallback</td><td>The name of a javascript function to call when the service call returns asynchronously</td><td>''</td></tr>
 		</table>
@@ -54,7 +54,7 @@
 		<p>The <span class='param'>includemetadata</span> parameter sets whether to include a metadata section in the response which includes summary information about the results. See the metadata section for more information. The default value is </p>
 		<p>The <span class='param'>jsoncallback</span> parameter is used to provide the name of a javascript function to call when the service call returns asynchronously.</p>
 		<p>For example, the following REST Service call includes values for all optional parameters :</p>
-		<div class="code">http://dopa-services.jrc.ec.europa.eu/services/especies/getpaspecieslist?wdpa_id=785&presence_id=(1,2)&format=json&fields=(iucn_species_id)&includemetadata=false&jsoncallback=retrieved</div>
+		<div class="code">http://dopa-services.jrc.ec.europa.eu/services/especies/getpaspecieslist?wdpa_id=785&presence_id=1,2&format=json&fields=iucn_species_id&includemetadata=false&jsoncallback=retrieved</div>
 		<h4>Specifying parameter values</h4>
 		<p>Parameter values for the REST Service calls can be done by simply appending the parameter values to the end of the service end point as a set of key/value pairs preceeded by a question mark. There are example calls in each of the service pages that show the syntax for calling a particular service (both using mandatory and optional parameters). All mandatory parameter values must be specified, and all data types must be adhered to otherwise the service call will fail. Parameters can be specified in any order (both mandatory and optional) and 
 			any parameters whose names do not match those of the input/output parameters will be ignored. If mandatory parameters are missing or values are invalid then the server will return an error.</p>
@@ -91,7 +91,7 @@
 		<ol>
 			<li>Open Microsoft Excel 2010 and click on the Data tab</li>
 			<li>Click on 'From Other Sources' and select 'From XML Data Import'</li>
-			<li>In the File name text box, enter the endpoint of the REST service that contains the data you require (e.g. http://dopa-services.jrc.ec.europa.eu/services/especies/getpaspecieslist?wdpa_id=785&presence_id=(2)&format=xml)</li>
+			<li>In the File name text box, enter the endpoint of the REST service that contains the data you require (e.g. http://dopa-services.jrc.ec.europa.eu/services/especies/getpaspecieslist?wdpa_id=785&presence_id=2&format=xml)</li>
 			<li>Click Open and when prompted select where you want to put the data</li>
 			<li>The data is imported into Excel as a spreadsheet</li>
 		</ol>
@@ -99,21 +99,23 @@
 		<h3>Background</h3>
 		<p>The DOPA REST Services Directory makes available in HTML format, functions from a Postgresql database. It supports the following features to expose your data as a REST service:</p>
 		<ul>
-			<li>Autogenerates HTML pages from schemas and functions in a Postgresql database</li>
-			<li>Autogenerates descriptions for functions and function parameters based on COMMENTS in the database</li>
-			<li>Autogenerates a service page for each function in a postgresql schema including information on the parameters, descriptions, types and default values</li>
-			<li>Autogenerates sample REST service calls for each service</li>
+			<li>Creates HTML pages from schemas and functions in a Postgresql database</li>
+			<li>Publishes the descriptions as HTML for functions and function parameters based on COMMENTS in the database</li>
+			<li>Creates a service page for each function in a postgresql schema including information on the parameters, descriptions, types and default values</li>
+			<li>Creates sample REST service calls for each service</li>
 		</ul>
 		<p>To take advantage of these features you simply need to create a function in Postgresql with a description. Optionally you can add additional information to the funtion such as parameter descriptions.</p>
 		<h3>Step-by-step service publishing</h3>
 		<h4>Create the Function to publish</h4>
-		<p>In Postgresql create a function to retrieve data within a schema which starts with an 'e' (optionally with a number of input parameters). This function should be prefixed with the word 'get' to stress that it is a read-only function - currently only services that begin with 'get..' are shown in the REST Services Directory.
-			In addition, the function must be accessible using the app_user account. </p>
+		<p>In Postgresql create a function to retrieve data within a schema which starts with an 'e' (optionally with a number of input parameters). 
+			The name of the function will determine its visiblity within the REST Services Directory. Currently only functions that begin with 'get' are shown in the REST Services Directory. In addition, if a function begins with an underscore it will only be shown internally and not on the publically visible REST Services Directory. This can be useful for debugging/testing purposes. 
+			In addition, the function must be accessible using the appuser account. </p>
 		<h4>Define the return type</h4>
 		<p>If you want to return simple scalar data then define the output as a simple data type. For example:</p>
 		<div class="code">CREATE OR REPLACE FUNCTION getcountryspeciescount(country_id integer, presence_id integer[]) RETURNS bigint AS ..</div>
 		<p>To return data with a specific schema, define a TABLE return data type (see <a href='http://www.postgresql.org/docs/9.1/static/sql-createfunction.html' target='_ext'>here</a> for more information). For example:</p>
 		<div class="code">CREATE OR REPLACE FUNCTION getirreplacibilityindices(IN wdpa_id integer) RETURNS TABLE(taxonomic_group character varying, irreplacibility_score double precision) AS ..</div>
+		<p>If you want your service to be accessible using data-aware controls you will need to supply a unique identifier with your response. By default the idProperty in the Response metadata lists the first field that is returned as the id field. So in this case you will need to ensure that the id field is returned first.</p>
 		<h4>Define the default input parameters</h4>
 		<p>If you want to include default parameters in your REST service then you need to implement them in your function. For example:</p>
 		<div class="code">CREATE OR REPLACE FUNCTION getcountryspeciescount(country_id integer, presence_id integer[] DEFAULT ARRAY[1,2,3]) RETURNS bigint AS ..</div>
@@ -133,6 +135,9 @@
 			&lt;br/&gt;Ia: Strict Nature Reserve, Ib: Wilderness Area, II: National Park, III: Natural Monument or Feature, IV: Habitat/Species Management Area, V: Protected Landscape/Seascape, VI: Protected area with sustainable use of natural resources 
 			(see &lt;a href=''http://www.unep-wcmc.org/iucn-protected-area-management-categories_591.html'' target=''wcmc''&gt;here&lt;/a&gt; for more information)}';</div>
 		<p>If only some parameters have a description available then all of the rest of the parameters will appear with 'No Description' beside the parameter name in the Services Directory.</p>
+		<h3>Licensing and Copyright</h3>
+		<p>When publishing services into the REST Services Directory, particular care must be taken to abide by any license or copyright restrictions, particularly where data has been derived directly from an external partner. Currently JRC are not licensed to 
+			redeliver any spatial data from external partners including IUCN and UNEP-WCMC.</p>
 		<br/><br/>
 		<p>For comments/amendments please email: <a href="mailto:andrew.cottam@jrc.ec.europa.eu">andrew.cottam@jrc.ec.europa.eu</a></p>
 	</body>

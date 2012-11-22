@@ -1,5 +1,4 @@
 $def with (schemas, header, footer)
-
 <html>
 	<head>
 		<title>DOPA Web Services</title>
@@ -13,6 +12,8 @@ $def with (schemas, header, footer)
 			$for schema in schemas:
 				<tr><td><a href="$schema['name']/">$schema['name'][:1]$schema['name'][1:2].upper()$schema['name'][2:]</a></td><td>$schema['description']</td></tr>
 			</table>
+		$else:
+		    No content
 		$:footer
 	</body>
 </html>
