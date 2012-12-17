@@ -8,4 +8,4 @@ Creates HTML pages from schemas and functions in a Postgresql database
 Publishes the descriptions as HTML for functions and function parameters based on COMMENTS in the database
 Creates a service page for each function in a postgresql schema including information on the parameters, descriptions, types and default values
 Creates sample REST service calls for each service
-To take advantage of these features you simply need to create a function in Postgresql with a description. Optionally you can add additional information to the funtion such as parameter descriptions.
+To take advantage of these features you simply need to create a function in Postgresql with a description. Optionally you can add additional information to the function such as parameter descriptions.
