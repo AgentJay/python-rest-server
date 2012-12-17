@@ -1,7 +1,7 @@
 python-rest-server
 ==================
 
-Apache Server extension to publish and document Postgresql resources as REST Web Services in an HTML Services Directory
+Apache Server extension to publish and document Postgresql resources as REST Web Services in an HTML Services Directory.
 The DOPA REST Services Directory makes available in HTML format, functions from a Postgresql database. It supports the following features to expose your data as a REST service:
 
 * Automatically creates HTML pages from schemas and functions in a Postgresql database
