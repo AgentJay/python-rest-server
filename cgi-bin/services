@@ -1,11 +1,10 @@
 #!/usr/bin/env python 
-import web, json, sys, exceptions, re
+import web, json, sys, exceptions, re, datetime
 from amazon_ses import AmazonSES, EmailMessage, AmazonError
 from twilio.rest import TwilioRestClient
 from decimal import Decimal
 from psycopg2 import ProgrammingError, DataError
 from dbconnect import dbconnect, twilio, amazon_ses
-from datetime import datetime
 from orderedDict import OrderedDict
 import xml.etree.ElementTree as xml
 
@@ -16,12 +15,16 @@ urls = (
   )
 
 class DopaServicesError(Exception):
+    """Exception Class that allows the DOPA Services REST Server to raise custom exceptions"""
     pass  
 
-class DecimalEncoder(json.JSONEncoder):
+class CustomJSONEncoder(json.JSONEncoder):
+    """Class to provide the correct serialisation of decimal values into JSON"""
     def default(self, obj):
         if isinstance(obj, Decimal):
             return float(obj)
+        elif isinstance(obj, datetime.date):
+            return obj.isoformat()
         return json.JSONEncoder.default(self, obj)
 
 class getschemas:
@@ -115,11 +118,11 @@ def callservice(schemaname, servicename, querystring):
         # get the standard optional parameters from the url 
         format = params.setdefault('format', 'json') 
         fields = params.setdefault('fields', '').split(",") # fields will be passed as an array, e.g. iucn_species_id,wdpa_id
-        jsoncallback = params.setdefault('jsoncallback', None)
+        callback = params.setdefault('callback', None)
         includemetadata = params.setdefault('includemetadata', 'true')
         parseparams = params.setdefault('parseparams', 'true')
         # remove the standard optional parameters from the dictionary so we are left with just the parameters required for the function
-        del (params['format'], params['fields'], params['jsoncallback'], params['includemetadata'], params['parseparams'])
+        del (params['format'], params['fields'], params['callback'], params['includemetadata'], params['parseparams'])
 
         # PARSE AND CONVERT THE DATA TYPES OF THE OTHER INPUT PARAMETERS
         conn = dbconnect("species_appuser")
@@ -151,13 +154,14 @@ def callservice(schemaname, servicename, querystring):
             params = OrderedDict([(n, params[n]) for n in functionparamnames if n in params.keys()])
         
         # RUN THE QUERY
-        t1 = datetime.now()
+        t1 = datetime.datetime.now()
         if hasparams & len(functionparams) != len(params):  # not all parameters are being passed to the function - so we need to use named parameters
             sql = "SELECT * from " + schemaname + "." + servicename + "(" + ",".join([n + ":=%(" + n + ")s" for n in params]) + ");" # run the query using named parameters
+#            return 'sql: ' + sql + ' params: ' + str(params) + ' query: ' + conn.cur.mogrify(sql, params)
             conn.cur.execute(sql, params)
         else:
             conn.cur.callproc(schemaname + "." + servicename, params.values()) # run the query using positional parameters
-        t2 = datetime.now()
+        t2 = datetime.datetime.now()
         rows = conn.cur.fetchall()
         conn.cur.close()
         
@@ -180,12 +184,12 @@ def callservice(schemaname, servicename, querystring):
                 recordsdict = [[row[col] for col in range(fieldcount) if (col in colsRequired)] for row in rows]
             json.encoder.FLOAT_REPR = lambda f: ("%.2f" % f)
             if (includemetadata.lower() == 'true'):
-                responsejson = json.dumps(dict([("metadata", metadatadict), ("records", recordsdict)]), indent=1, cls=DecimalEncoder)
+                responsejson = json.dumps(dict([("metadata", metadatadict), ("records", recordsdict)]), indent=1, cls=CustomJSONEncoder, sort_keys = True)
             else: 
-                responsejson = json.dumps(dict([("records", recordsdict)]), indent=1, cls=DecimalEncoder)
-            if jsoncallback:
+                responsejson = json.dumps(dict([("records", recordsdict)]), indent=1, cls=CustomJSONEncoder, sort_keys = True)
+            if callback:
                 web.header("Content-Type", "application/javascript") 
-                return jsoncallback + '(' + responsejson + ');'                 
+                return callback + '(' + responsejson + ');'                 
             else:
                 web.header("Content-Type", "application/json") 
                 return responsejson
@@ -215,7 +219,8 @@ def callservice(schemaname, servicename, querystring):
         elif format == 'sms':
             _twilio = twilio()
             client = TwilioRestClient(_twilio.twilio_account_sid, _twilio.twilio_auth_token)                # use the twilio api account
-            message = client.sms.messages.create(to="+393668084920", from_="+19712647662", body=rows[0])    #just send the first record
+            message = client.sms.messages.create(to="+393668084920", from_="+19712647662", body='Hi Andrew - test species data: ' + str(rows[0]))    # my mobile
+            message = client.sms.messages.create(to="+393452172330", from_="+19712647662", body='Hi Andreas - test species data: : ' + str(rows[0]))    # Andreas work mobile
             return message
 
         elif format == 'email':
@@ -226,16 +231,19 @@ def callservice(schemaname, servicename, querystring):
             data = [[row[col] for col in range(fieldcount) if (col in colsRequired)] for row in rows]
             colnames = "<tr>" + "".join(["<th>" + f["name"] + "</th>" for f in metadatadict["fields"]]) + "</tr>"
             message.bodyHtml = "Results for the query : " + querystring + "<table>" + colnames + "".join(["<tr>" + p + "</tr>" for p in ["".join(h) for h in [['<td>' + str(col) + '</td>' for col in row] for row in data]]]) + "</table>"
-            result = amazonSes.sendEmail('a.cottam@gmail.com', 'a.cottam@gmail.com', message)   
+            result = amazonSes.sendEmail('a.cottam@gmail.com', 'a.cottam@gmail.com', message) # to me
+            result = amazonSes.sendEmail('a.cottam@gmail.com', 'justropp@gmail.com', message) # to juliana
             return result 
                     
         else:
-            raise DopaServicesError('Invalid response format')
+            raise DopaServicesError('Invalid response format: ' + format)
 
     except (DopaServicesError, DataError, ProgrammingError, exceptions.TypeError, IndexError):
         return "DOPA Services Error: " + str(sys.exc_info())
+    except (AmazonError):
+        return "DOPA Services Error: There was an error sending the email. Make sure that the email address has been verified in Amazon Simple Email Services()"
         
-def gettypefromtypecode(typecode):
+def gettypefromtypecode(typecode): #returns a string representation of the psycopg2.curson.type_code value which is used to get the parameter datatype from the database
     if (typecode in [16, 1000, 1560, 1561]): return "Boolean"
     elif (typecode in [20, 21, 23, 26, 700, 701, 790, 1005, 1007, 1028, 1016, 1021, 1022, 1700]): return "Number"
     elif (typecode in [18, 25, 1043, 1002, 1009, 1015, 1043]): return "String"
@@ -245,10 +253,13 @@ def gettypefromtypecode(typecode):
     elif (typecode in [2278]): return "Null"
     else: return "Undefined"
     
-def gettypefrompostgresql(postgresqltype):
+def gettypefrompostgresql(postgresqltype): #returns a string representation of the SQL data type - this is used to show the data type in the html pages
     if (postgresqltype.lower() in ['integer']): return "integer"
+    elif (postgresqltype.lower() in ['single precision']): return "single"
+    elif (postgresqltype.lower() in ['double precision']): return "double"
     elif (postgresqltype.lower() in ['array']): return "array"
-    elif (postgresqltype.lower() in ['character varying']): return "string"
+    elif (postgresqltype.lower() in ['character varying','text']): return "string"
+    elif (postgresqltype.lower() in ['date']): return "date"
     else: return "Unknown"
 
 def getservicedescription(fulldescription):
@@ -267,7 +278,7 @@ def isNumeric(val):
         return True
 
 def isAuthorised(servicename):
-    if (servicename[:3] == 'get') | ((servicename[:1] == '_') & (web.ctx.host == 'dopa-services.jrc.it')):
+    if (servicename[:3] in ['get','set']) | ((servicename[:1] == '_') & (web.ctx.host == 'dopa-services.jrc.it')):
         return True
     else:
         return False
