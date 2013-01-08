@@ -3,7 +3,7 @@ import web, json, sys, exceptions, re, datetime
 from amazon_ses import AmazonSES, EmailMessage, AmazonError
 from twilio.rest import TwilioRestClient
 from decimal import Decimal
-from psycopg2 import ProgrammingError, DataError
+from psycopg2 import ProgrammingError, DataError, IntegrityError
 from dbconnect import dbconnect, twilio, amazon_ses
 from orderedDict import OrderedDict
 import xml.etree.ElementTree as xml
@@ -11,6 +11,7 @@ import xml.etree.ElementTree as xml
 urls = (
   "/(.+)/(.+)", "getservice",
   "/(.+)/", "getservices",
+  "/manager", "manager",
   "/", "getschemas"
   )
 
@@ -108,9 +109,7 @@ class getservice:
 
 def callservice(schemaname, servicename, querystring):
     try:
-        #AUTHORISE THE SERVICE BASED ON ITS NAME
-        if not (isAuthorised(servicename)):
-            raise DopaServicesError('Unauthorised servicename')     
+        t1 = datetime.datetime.now()
             
         # PARSE THE STANDARD OPTIONAL INPUT PARAMETERS
         # get the input parameters
@@ -125,7 +124,7 @@ def callservice(schemaname, servicename, querystring):
         del (params['format'], params['fields'], params['callback'], params['includemetadata'], params['parseparams'])
 
         # PARSE AND CONVERT THE DATA TYPES OF THE OTHER INPUT PARAMETERS
-        conn = dbconnect("species_appuser")
+        conn = dbconnect("species_especies_schema")
         # get the parameters for the function from postgresql
         conn.cur.callproc('utils.dopa_rest_getparams', [servicename])
         # get the function parameters as a string and split this into a list, e.g. wdpa_id integer, presence_id integer[] -->  ['wdpa_id integer', ' presence_id integer[]']
@@ -148,13 +147,16 @@ def callservice(schemaname, servicename, querystring):
             functionparamnames = [p.strip().split(" ")[0] for p in functionparams]
             #check that all parameters are correct
             invalidparamnames = [n for n in params.keys() if n not in functionparamnames]
-            if invalidparamnames and parseparams=='true':
+            if invalidparamnames and parseparams == 'true':
                 raise DopaServicesError('Invalid parameters: ' + ",".join(invalidparamnames))
             # put the input parameters in the right order 
             params = OrderedDict([(n, params[n]) for n in functionparamnames if n in params.keys()])
         
+        #AUTHORISE THE SERVICE BASED ON ITS NAME
+        if not (isAuthorised(servicename)):
+            raise DopaServicesError('Unauthorised servicename')     
+
         # RUN THE QUERY
-        t1 = datetime.datetime.now()
         if hasparams & len(functionparams) != len(params):  # not all parameters are being passed to the function - so we need to use named parameters
             sql = "SELECT * from " + schemaname + "." + servicename + "(" + ",".join([n + ":=%(" + n + ")s" for n in params]) + ");" # run the query using named parameters
 #            return 'sql: ' + sql + ' params: ' + str(params) + ' query: ' + conn.cur.mogrify(sql, params)
@@ -173,20 +175,20 @@ def callservice(schemaname, servicename, querystring):
         if len(fieldsdict) != len(fields):
             raise DopaServicesError('Invalid output fields')
         msg = conn.cur.statusmessage
-        metadatadict = dict([("success", msg[:msg.index(" ")]), ("records", int(msg[msg.index(" ") + 1:])), ("idProperty", conn.cur.description[0].name), ("root", "records"), ("fields", fieldsdict), ("duration", str(t2 - t1))])    
+        metadatadict = dict([("success", True), ("recordCount", int(msg[msg.index(" ") + 1:])), ("idProperty", conn.cur.description[0].name), ("root", "records"), ("fields", fieldsdict), ("duration", str(t2 - t1)), ("error", None)])    
         
         # RECORDS SECTION OF THE RESPONSE
         colsRequired = [allfields.index(field) for field in fields]
-        if format in ['json','array']:
+        if format in ['json', 'array']:
             if format == 'json':
                 recordsdict = [dict([(allfields[col], row[col]) for col in range(fieldcount) if (col in colsRequired)]) for row in rows]
             else:
                 recordsdict = [[row[col] for col in range(fieldcount) if (col in colsRequired)] for row in rows]
             json.encoder.FLOAT_REPR = lambda f: ("%.2f" % f)
             if (includemetadata.lower() == 'true'):
-                responsejson = json.dumps(dict([("metadata", metadatadict), ("records", recordsdict)]), indent=1, cls=CustomJSONEncoder, sort_keys = True)
+                responsejson = json.dumps(dict([("metadata", metadatadict), ("records", recordsdict)]), indent=1, cls=CustomJSONEncoder, sort_keys=True)
             else: 
-                responsejson = json.dumps(dict([("records", recordsdict)]), indent=1, cls=CustomJSONEncoder, sort_keys = True)
+                responsejson = json.dumps(dict([("records", recordsdict)]), indent=1, cls=CustomJSONEncoder, sort_keys=True)
             if callback:
                 web.header("Content-Type", "application/javascript") 
                 return callback + '(' + responsejson + ');'                 
@@ -220,7 +222,7 @@ def callservice(schemaname, servicename, querystring):
             _twilio = twilio()
             client = TwilioRestClient(_twilio.twilio_account_sid, _twilio.twilio_auth_token)                # use the twilio api account
             message = client.sms.messages.create(to="+393668084920", from_="+19712647662", body='Hi Andrew - test species data: ' + str(rows[0]))    # my mobile
-            message = client.sms.messages.create(to="+393452172330", from_="+19712647662", body='Hi Andreas - test species data: : ' + str(rows[0]))    # Andreas work mobile
+#            message = client.sms.messages.create(to="+393452172330", from_="+19712647662", body='Hi Andreas - test species data: : ' + str(rows[0]))    # Andreas work mobile
             return message
 
         elif format == 'email':
@@ -232,17 +234,29 @@ def callservice(schemaname, servicename, querystring):
             colnames = "<tr>" + "".join(["<th>" + f["name"] + "</th>" for f in metadatadict["fields"]]) + "</tr>"
             message.bodyHtml = "Results for the query : " + querystring + "<table>" + colnames + "".join(["<tr>" + p + "</tr>" for p in ["".join(h) for h in [['<td>' + str(col) + '</td>' for col in row] for row in data]]]) + "</table>"
             result = amazonSes.sendEmail('a.cottam@gmail.com', 'a.cottam@gmail.com', message) # to me
-            result = amazonSes.sendEmail('a.cottam@gmail.com', 'justropp@gmail.com', message) # to juliana
+#            result = amazonSes.sendEmail('a.cottam@gmail.com', 'justropp@gmail.com', message) # to juliana
             return result 
                     
         else:
             raise DopaServicesError('Invalid response format: ' + format)
 
-    except (DopaServicesError, DataError, ProgrammingError, exceptions.TypeError, IndexError):
-        return "DOPA Services Error: " + str(sys.exc_info())
-    except (AmazonError):
-        return "DOPA Services Error: There was an error sending the email. Make sure that the email address has been verified in Amazon Simple Email Services()"
-        
+    except (DopaServicesError, DataError, ProgrammingError, exceptions.TypeError, IndexError, IntegrityError, AmazonError) as e:
+#        web.webapi.internalerror() #returns a internal server error 500
+        t2 = datetime.datetime.now()
+        msg = "There was an error sending the email. Make sure that the email address has been verified in Amazon Simple Email Services" if type(e) == AmazonError else str(sys.exc_info()).decode('string_escape')
+        if format in ['json', 'array']:
+            metadatadict = dict([("success", False), ("recordCount", 0), ("idProperty", None), ("root", None), ("fields", None), ("duration", str(t2 - t1)), ("error", msg)])    
+            responsejson = json.dumps(dict([("metadata", metadatadict), ("records", None)]), indent=1, sort_keys=True)
+            if callback:
+                web.header("Content-Type", "application/javascript") 
+                return callback + '(' + responsejson + ');'                 
+            else:
+                web.header("Content-Type", "application/json") 
+                return responsejson
+
+        else:
+            return "DOPA Services Error: " + msg
+            
 def gettypefromtypecode(typecode): #returns a string representation of the psycopg2.curson.type_code value which is used to get the parameter datatype from the database
     if (typecode in [16, 1000, 1560, 1561]): return "Boolean"
     elif (typecode in [20, 21, 23, 26, 700, 701, 790, 1005, 1007, 1028, 1016, 1021, 1022, 1700]): return "Number"
@@ -258,7 +272,7 @@ def gettypefrompostgresql(postgresqltype): #returns a string representation of t
     elif (postgresqltype.lower() in ['single precision']): return "single"
     elif (postgresqltype.lower() in ['double precision']): return "double"
     elif (postgresqltype.lower() in ['array']): return "array"
-    elif (postgresqltype.lower() in ['character varying','text']): return "string"
+    elif (postgresqltype.lower() in ['character varying', 'text']): return "string"
     elif (postgresqltype.lower() in ['date']): return "date"
     else: return "Unknown"
 
@@ -278,10 +292,22 @@ def isNumeric(val):
         return True
 
 def isAuthorised(servicename):
-    if (servicename[:3] in ['get','set']) | ((servicename[:1] == '_') & (web.ctx.host == 'dopa-services.jrc.it')):
+    if (servicename[:3] in ['get', 'set']) | ((servicename[:1] == '_') & (web.ctx.host == 'dopa-services.jrc.it')):
         return True
     else:
         return False
 
+class manager:
+    def GET(self):
+        try:
+            render = web.template.render('templates/')
+            conn = dbconnect("species_appuser")
+            conn.cur.execute("select * from especies.species_wdpa_log")
+            rows = conn.cur.fetchall()
+            return render.manager(rows, render.header_manager(), render.footer_manager())
+        
+        except (DopaServicesError, ProgrammingError):
+            return "DOPA Services Error: " + str(sys.exc_info())
+        
 if __name__ == "__main__":
      app = web.application(urls, globals()).run()
