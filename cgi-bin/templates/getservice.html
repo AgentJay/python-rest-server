@@ -39,11 +39,11 @@ $def with (schemaname, servicename, servicedesc, inparams, outparams, header, fo
 			$for param in params:
 				$ value = "1"
 				$if (param['name'] in ['country_id','countryid']):
-					$ value = "148"
+					$ value = "388"
 				$elif (param['name'] in ['wdpa_id','wdpaid']):
-					$ value = "1250" 
+					$ value = "220101" 
 				$elif (param['name'] in ['iucn_species_id','species_id','speciesid']):
-					$ value = "12392"
+					$ value = "6027"
 				$elif (param['name'] in ['ecoregionid']):
 					$ value = "10122"
 				$elif (param['name'] in ['startdate']):
@@ -51,9 +51,9 @@ $def with (schemaname, servicename, servicedesc, inparams, outparams, header, fo
 				$elif (param['name'] in ['enddate']):
 					$ value = "20121221"
 				$elif (param['name'] in ['latitude']):
-					$ value = "6.19088289379617"
+					$ value = "17.7374874801628"
 				$elif (param['name'] in ['longitude']):
-					$ value = "116.629877332495"
+					$ value = "-77.1214580575966"
 				$if (param['type']=='array'):
 					$if (param['default']!=''):
 						$if ',' in param['default']:

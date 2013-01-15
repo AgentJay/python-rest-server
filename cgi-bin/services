@@ -221,8 +221,10 @@ def callservice(schemaname, servicename, querystring):
         elif format == 'sms':
             _twilio = twilio()
             client = TwilioRestClient(_twilio.twilio_account_sid, _twilio.twilio_auth_token)                # use the twilio api account
-            message = client.sms.messages.create(to="+393668084920", from_="+19712647662", body='Hi Andrew - test species data: ' + str(rows[0]))    # my mobile
-#            message = client.sms.messages.create(to="+393452172330", from_="+19712647662", body='Hi Andreas - test species data: : ' + str(rows[0]))    # Andreas work mobile
+            bodystr = 'Hi Andrew - test species data: '
+            bodystr = bodystr + str(rows[0])[:160 - len(bodystr)]
+            message = client.sms.messages.create(to="+393668084920", from_="+19712647662", body = bodystr)    # my mobile
+#            message = client.sms.messages.create(to="+393452172330", from_="+19712647662", body = bodystr)    # Andreas work mobile
             return message
 
         elif format == 'email':
