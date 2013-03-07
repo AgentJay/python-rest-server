@@ -171,6 +171,7 @@ def callservice(schemaname, servicename, querystring):
         allfields = [d.name for d in conn.cur.description]
         fieldcount = len(allfields)
         if (fields == ['']): fields = allfields 
+#        return conn.cur.description
         fieldsdict = [dict([("name", d.name), ("type", gettypefromtypecode(d.type_code))]) for d in conn.cur.description if (d.name in fields)]
         if len(fieldsdict) != len(fields):
             raise DopaServicesError('Invalid output fields')
@@ -181,14 +182,14 @@ def callservice(schemaname, servicename, querystring):
         colsRequired = [allfields.index(field) for field in fields]
         if format in ['json', 'array']:
             if format == 'json':
-                recordsdict = [dict([(allfields[col], row[col]) for col in range(fieldcount) if (col in colsRequired)]) for row in rows]
+                recordsdict = [OrderedDict([(allfields[col], row[col]) for col in range(fieldcount) if (col in colsRequired)]) for row in rows] 
             else:
                 recordsdict = [[row[col] for col in range(fieldcount) if (col in colsRequired)] for row in rows]
-            json.encoder.FLOAT_REPR = lambda f: ("%.2f" % f)
+            json.encoder.FLOAT_REPR = lambda f: ("%.4f" % f)  # this specifies how many decimal places are returned in the json with float values - currently set to 4
             if (includemetadata.lower() == 'true'):
-                responsejson = json.dumps(dict([("metadata", metadatadict), ("records", recordsdict)]), indent=1, cls=CustomJSONEncoder, sort_keys=True)
+                responsejson = json.dumps(dict([("metadata", metadatadict), ("records", recordsdict)]), indent=1, cls=CustomJSONEncoder)
             else: 
-                responsejson = json.dumps(dict([("records", recordsdict)]), indent=1, cls=CustomJSONEncoder, sort_keys=True)
+                responsejson = json.dumps(dict([("records", recordsdict)]), indent=1, cls=CustomJSONEncoder)
             if callback:
                 web.header("Content-Type", "application/javascript") 
                 return callback + '(' + responsejson + ');'                 
@@ -224,7 +225,6 @@ def callservice(schemaname, servicename, querystring):
             bodystr = 'Hi Andrew - test species data: '
             bodystr = bodystr + str(rows[0])[:160 - len(bodystr)]
             message = client.sms.messages.create(to="+393668084920", from_="+19712647662", body = bodystr)    # my mobile
-#            message = client.sms.messages.create(to="+393452172330", from_="+19712647662", body = bodystr)    # Andreas work mobile
             return message
 
         elif format == 'email':
@@ -236,7 +236,6 @@ def callservice(schemaname, servicename, querystring):
             colnames = "<tr>" + "".join(["<th>" + f["name"] + "</th>" for f in metadatadict["fields"]]) + "</tr>"
             message.bodyHtml = "Results for the query : " + querystring + "<table>" + colnames + "".join(["<tr>" + p + "</tr>" for p in ["".join(h) for h in [['<td>' + str(col) + '</td>' for col in row] for row in data]]]) + "</table>"
             result = amazonSes.sendEmail('a.cottam@gmail.com', 'a.cottam@gmail.com', message) # to me
-#            result = amazonSes.sendEmail('a.cottam@gmail.com', 'justropp@gmail.com', message) # to juliana
             return result 
                     
         else:
@@ -259,13 +258,14 @@ def callservice(schemaname, servicename, querystring):
         else:
             return "DOPA Services Error: " + msg
             
-def gettypefromtypecode(typecode): #returns a string representation of the psycopg2.curson.type_code value which is used to get the parameter datatype from the database
-    if (typecode in [16, 1000, 1560, 1561]): return "Boolean"
-    elif (typecode in [20, 21, 23, 26, 700, 701, 790, 1005, 1007, 1028, 1016, 1021, 1022, 1700]): return "Number"
-    elif (typecode in [18, 25, 1043, 1002, 1009, 1015, 1043]): return "String"
-    elif (typecode in [702, 703, 704, 1023, 1024, 1025, 1082, 1083, 1084, 1182, 1183, 1184, ]): return "Date"
-    elif (typecode in [21]): return "Array"
-    elif (typecode in [17, 22, 24, 27, 28, 29, 30]): return "Object"
+def gettypefromtypecode(typecode): #returns a string representation of the psycopg2.cursor.type_code value which is shown in the response - the values come from the pg_type table in PostGIS and these are not complete yet
+    if (typecode in [16, 1000, 1560, 1561]): return "boolean"
+    elif (typecode in [20, 21, 23]): return "integer"
+    elif (typecode in [26,790, 1005, 1007, 1028, 1016, 1021, 1022, 1700]): return "number"
+    elif (typecode in [700, 701]): return "float"
+    elif (typecode in [18, 25, 1043, 1002, 1009, 1015, 1043]): return "string"
+    elif (typecode in [702, 703, 704, 1023, 1024, 1025, 1082, 1083, 1084, 1182, 1183, 1184, ]): return "date"
+    elif (typecode in [17, 22, 24, 27, 28, 29, 30]): return "object"
     elif (typecode in [2278]): return "Null"
     else: return "Undefined"
     
@@ -276,7 +276,7 @@ def gettypefrompostgresql(postgresqltype): #returns a string representation of t
     elif (postgresqltype.lower() in ['array']): return "array"
     elif (postgresqltype.lower() in ['character varying', 'text']): return "string"
     elif (postgresqltype.lower() in ['date']): return "date"
-    else: return "Unknown"
+    else: return "unknown"
 
 def getservicedescription(fulldescription):
     pos = fulldescription.find("{")
