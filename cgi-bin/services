@@ -58,7 +58,7 @@ class getservice:
     def GET(self, schemaname, servicename):
         # if there are some parameters then the user is calling the service
         if web.input():
-            return callservice(schemaname, servicename, web.ctx.query[1:]) #pass the querystring to preserve the order of the parameters - the web.input() collection does not preserve the order
+            return callservice(schemaname, servicename, web.ctx.query[1:])  # pass the querystring to preserve the order of the parameters - the web.input() collection does not preserve the order
         else:
             try:
                 render = web.template.render('templates/')
@@ -94,6 +94,7 @@ class getservice:
                     paramdefs = [(p[6:-1] if 'ARRAY' in p else p) for p in paramdefs]
                     # remove any typecast symbols, e.g. ::text
                     paramdefs = [p.replace("::text", "") for p in paramdefs]
+                    paramdefs = [p.replace("::integer", "") for p in paramdefs]
                     # remove any quotes, e.g. 'CR','DD' -> CR, DD
                     paramdefs = [p.replace("'", "") for p in paramdefs]
                     # remove any spaces, e.g. CR, DD -> CR,DD
@@ -116,7 +117,7 @@ def callservice(schemaname, servicename, querystring):
         params = OrderedDict([(q.split("=")[0], q.split("=")[1]) for q in querystring.split("&")])
         # get the standard optional parameters from the url 
         format = params.setdefault('format', 'json') 
-        fields = params.setdefault('fields', '').split(",") # fields will be passed as an array, e.g. iucn_species_id,wdpa_id
+        fields = params.setdefault('fields', '').split(",")  # fields will be passed as an array, e.g. iucn_species_id,wdpa_id
         callback = params.setdefault('callback', None)
         includemetadata = params.setdefault('includemetadata', 'true')
         parseparams = params.setdefault('parseparams', 'true')
@@ -145,24 +146,24 @@ def callservice(schemaname, servicename, querystring):
                         params[key] = strlist
             # get the full list of function parameter names
             functionparamnames = [p.strip().split(" ")[0] for p in functionparams]
-            #check that all parameters are correct
+            # check that all parameters are correct
             invalidparamnames = [n for n in params.keys() if n not in functionparamnames]
             if invalidparamnames and parseparams == 'true':
                 raise DopaServicesError('Invalid parameters: ' + ",".join(invalidparamnames))
             # put the input parameters in the right order 
             params = OrderedDict([(n, params[n]) for n in functionparamnames if n in params.keys()])
         
-        #AUTHORISE THE SERVICE BASED ON ITS NAME
+        # AUTHORISE THE SERVICE BASED ON ITS NAME
         if not (isAuthorised(servicename)):
             raise DopaServicesError('Unauthorised servicename')     
 
         # RUN THE QUERY
         if hasparams & len(functionparams) != len(params):  # not all parameters are being passed to the function - so we need to use named parameters
-            sql = "SELECT * from " + schemaname + "." + servicename + "(" + ",".join([n + ":=%(" + n + ")s" for n in params]) + ");" # run the query using named parameters
+            sql = "SELECT * from " + schemaname + "." + servicename + "(" + ",".join([n + ":=%(" + n + ")s" for n in params]) + ");"  # run the query using named parameters
 #            return 'sql: ' + sql + ' params: ' + str(params) + ' query: ' + conn.cur.mogrify(sql, params)
             conn.cur.execute(sql, params)
         else:
-            conn.cur.callproc(schemaname + "." + servicename, params.values()) # run the query using positional parameters
+            conn.cur.callproc(schemaname + "." + servicename, params.values())  # run the query using positional parameters
         t2 = datetime.datetime.now()
         rows = conn.cur.fetchall()
         conn.cur.close()
@@ -176,7 +177,7 @@ def callservice(schemaname, servicename, querystring):
         if len(fieldsdict) != len(fields):
             raise DopaServicesError('Invalid output fields')
         msg = conn.cur.statusmessage
-        metadatadict = dict([("success", True), ("recordCount", int(msg[msg.index(" ") + 1:])), ("idProperty", conn.cur.description[0].name), ("root", "records"), ("fields", fieldsdict), ("duration", str(t2 - t1)), ("error", None)])    
+        metadatadict = OrderedDict([("duration", str(t2 - t1)), ("error", None), ("idProperty", conn.cur.description[0].name), ("successProperty", 'success'), ("totalProperty", 'recordCount'), ("success", True), ("recordCount", int(msg[msg.index(" ") + 1:])), ("root", "records"), ("fields", fieldsdict)])    
         
         # RECORDS SECTION OF THE RESPONSE
         colsRequired = [allfields.index(field) for field in fields]
@@ -187,7 +188,7 @@ def callservice(schemaname, servicename, querystring):
                 recordsdict = [[row[col] for col in range(fieldcount) if (col in colsRequired)] for row in rows]
             json.encoder.FLOAT_REPR = lambda f: ("%.4f" % f)  # this specifies how many decimal places are returned in the json with float values - currently set to 4
             if (includemetadata.lower() == 'true'):
-                responsejson = json.dumps(dict([("metadata", metadatadict), ("records", recordsdict)]), indent=1, cls=CustomJSONEncoder)
+                responsejson = json.dumps(dict([("metaData", metadatadict), ("records", recordsdict)]), indent=1, cls=CustomJSONEncoder)
             else: 
                 responsejson = json.dumps(dict([("records", recordsdict)]), indent=1, cls=CustomJSONEncoder)
             if callback:
@@ -221,21 +222,21 @@ def callservice(schemaname, servicename, querystring):
         
         elif format == 'sms':
             _twilio = twilio()
-            client = TwilioRestClient(_twilio.twilio_account_sid, _twilio.twilio_auth_token)                # use the twilio api account
+            client = TwilioRestClient(_twilio.twilio_account_sid, _twilio.twilio_auth_token)  # use the twilio api account
             bodystr = 'Hi Andrew - test species data: '
             bodystr = bodystr + str(rows[0])[:160 - len(bodystr)]
-            message = client.sms.messages.create(to="+393668084920", from_="+19712647662", body = bodystr)    # my mobile
+            message = client.sms.messages.create(to="+393668084920", from_="+19712647662", body=bodystr)  # my mobile
             return message
 
         elif format == 'email':
             _amazon_ses = amazon_ses()
-            amazonSes = AmazonSES(_amazon_ses.AccessKeyID, _amazon_ses.SecretAccessKey)                     # use the amazon simple email service api account
+            amazonSes = AmazonSES(_amazon_ses.AccessKeyID, _amazon_ses.SecretAccessKey)  # use the amazon simple email service api account
             message = EmailMessage()
             message.subject = 'DOPA Information Request'
             data = [[row[col] for col in range(fieldcount) if (col in colsRequired)] for row in rows]
             colnames = "<tr>" + "".join(["<th>" + f["name"] + "</th>" for f in metadatadict["fields"]]) + "</tr>"
             message.bodyHtml = "Results for the query : " + querystring + "<table>" + colnames + "".join(["<tr>" + p + "</tr>" for p in ["".join(h) for h in [['<td>' + str(col) + '</td>' for col in row] for row in data]]]) + "</table>"
-            result = amazonSes.sendEmail('a.cottam@gmail.com', 'a.cottam@gmail.com', message) # to me
+            result = amazonSes.sendEmail('a.cottam@gmail.com', 'a.cottam@gmail.com', message)  # to me
             return result 
                     
         else:
@@ -246,8 +247,8 @@ def callservice(schemaname, servicename, querystring):
         t2 = datetime.datetime.now()
         msg = "There was an error sending the email. Make sure that the email address has been verified in Amazon Simple Email Services" if type(e) == AmazonError else str(sys.exc_info()).decode('string_escape')
         if format in ['json', 'array']:
-            metadatadict = dict([("success", False), ("recordCount", 0), ("idProperty", None), ("root", None), ("fields", None), ("duration", str(t2 - t1)), ("error", msg)])    
-            responsejson = json.dumps(dict([("metadata", metadatadict), ("records", None)]), indent=1, sort_keys=True)
+            metadatadict = OrderedDict([("duration", str(t2 - t1)), ("error", msg), ("idProperty", None), ("successProperty", 'success'), ("totalProperty", 'recordCount'), ("success", False), ("recordCount", 0), ("root", None), ("fields", None)])    
+            responsejson = json.dumps(dict([("metaData", metadatadict), ("records", None)]), indent=1)
             if callback:
                 web.header("Content-Type", "application/javascript") 
                 return callback + '(' + responsejson + ');'                 
@@ -258,10 +259,10 @@ def callservice(schemaname, servicename, querystring):
         else:
             return "DOPA Services Error: " + msg
             
-def gettypefromtypecode(typecode): #returns a string representation of the psycopg2.cursor.type_code value which is shown in the response - the values come from the pg_type table in PostGIS and these are not complete yet
+def gettypefromtypecode(typecode):  # returns a string representation of the psycopg2.cursor.type_code value which is shown in the response - the values come from the pg_type table in PostGIS and these are not complete yet
     if (typecode in [16, 1000, 1560, 1561]): return "boolean"
     elif (typecode in [20, 21, 23]): return "integer"
-    elif (typecode in [26,790, 1005, 1007, 1028, 1016, 1021, 1022, 1700]): return "number"
+    elif (typecode in [26, 790, 1005, 1007, 1028, 1016, 1021, 1022, 1700]): return "number"
     elif (typecode in [700, 701]): return "float"
     elif (typecode in [18, 25, 1043, 1002, 1009, 1015, 1043]): return "string"
     elif (typecode in [702, 703, 704, 1023, 1024, 1025, 1082, 1083, 1084, 1182, 1183, 1184, ]): return "date"
@@ -269,7 +270,7 @@ def gettypefromtypecode(typecode): #returns a string representation of the psyco
     elif (typecode in [2278]): return "Null"
     else: return "Undefined"
     
-def gettypefrompostgresql(postgresqltype): #returns a string representation of the SQL data type - this is used to show the data type in the html pages
+def gettypefrompostgresql(postgresqltype):  # returns a string representation of the SQL data type - this is used to show the data type in the html pages
     if (postgresqltype.lower() in ['integer']): return "integer"
     elif (postgresqltype.lower() in ['single precision']): return "single"
     elif (postgresqltype.lower() in ['double precision']): return "double"

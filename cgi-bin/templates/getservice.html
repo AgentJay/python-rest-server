@@ -54,6 +54,8 @@ $def with (schemaname, servicename, servicedesc, inparams, outparams, header, fo
 					$ value = "17.7374874801628"
 				$elif (param['name'] in ['longitude']):
 					$ value = "-77.1214580575966"
+				$elif (param['name'] in ['taxonomicgroup']):
+					$ value = "AVES"
 				$if (param['type']=='array'):
 					$if (param['default']!=''):
 						$if ',' in param['default']:
