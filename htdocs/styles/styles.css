@@ -1,8 +1,8 @@
-p{
+p {
 	font-size: 13px;
 	font-family: Arial, Helvetica, sans-serif;
 }
-li{
+li {
 	font-family: Arial, Helvetica, sans-serif;
 	font-size: 13px;
 }
@@ -27,7 +27,7 @@ h3 {
 h4 {
 	color: #444;
 	font-size: 14px;
-	font-style:italic;
+	font-style: italic;
 	font-family: Arial, Helvetica, sans-serif;
 }
 table.table {
@@ -146,7 +146,31 @@ img {
 	color: #006;
 	font-size: 12px;
 }
-.param{
-	display:inline;
-	font-style: italic;	
+.param {
+	display: inline;
+	font-style: italic;
+}
+.restimg {
+	padding-left: 150px;
+	padding-top: 25px;
+	padding-bottom: 25px;
+}
+li{
+	padding:1px;
+}
+.toc1{
+	list-style:none;
+	padding-top:10px;
+	font-size:1em;
+	font-style:italic;
+}
+.toc2{
+	list-style:none;
+	padding-left:30px;
+	font-size:0.9em;
+}
+.toc3{
+	list-style:none;
+	padding-left:60px;
+	font-size:0.8em;
 }

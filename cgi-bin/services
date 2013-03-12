@@ -120,9 +120,11 @@ def callservice(schemaname, servicename, querystring):
         fields = params.setdefault('fields', '').split(",")  # fields will be passed as an array, e.g. iucn_species_id,wdpa_id
         callback = params.setdefault('callback', None)
         includemetadata = params.setdefault('includemetadata', 'true')
+        metadataName = params.setdefault('metadataname', 'metadata')
+        rootName = params.setdefault('rootname', 'records')
         parseparams = params.setdefault('parseparams', 'true')
         # remove the standard optional parameters from the dictionary so we are left with just the parameters required for the function
-        del (params['format'], params['fields'], params['callback'], params['includemetadata'], params['parseparams'])
+        del (params['format'], params['fields'], params['callback'], params['includemetadata'], params['parseparams'],params['metadataname'],params['rootname'])
 
         # PARSE AND CONVERT THE DATA TYPES OF THE OTHER INPUT PARAMETERS
         conn = dbconnect("species_especies_schema")
@@ -177,7 +179,7 @@ def callservice(schemaname, servicename, querystring):
         if len(fieldsdict) != len(fields):
             raise DopaServicesError('Invalid output fields')
         msg = conn.cur.statusmessage
-        metadatadict = OrderedDict([("duration", str(t2 - t1)), ("error", None), ("idProperty", conn.cur.description[0].name), ("successProperty", 'success'), ("totalProperty", 'recordCount'), ("success", True), ("recordCount", int(msg[msg.index(" ") + 1:])), ("root", "records"), ("fields", fieldsdict)])    
+        metadatadict = OrderedDict([("duration", str(t2 - t1)), ("error", None), ("idProperty", conn.cur.description[0].name), ("successProperty", 'success'), ("totalProperty", 'recordCount'), ("success", True), ("recordCount", int(msg[msg.index(" ") + 1:])), ("root", rootName), ("fields", fieldsdict)])    
         
         # RECORDS SECTION OF THE RESPONSE
         colsRequired = [allfields.index(field) for field in fields]
@@ -188,9 +190,9 @@ def callservice(schemaname, servicename, querystring):
                 recordsdict = [[row[col] for col in range(fieldcount) if (col in colsRequired)] for row in rows]
             json.encoder.FLOAT_REPR = lambda f: ("%.4f" % f)  # this specifies how many decimal places are returned in the json with float values - currently set to 4
             if (includemetadata.lower() == 'true'):
-                responsejson = json.dumps(dict([("metaData", metadatadict), ("records", recordsdict)]), indent=1, cls=CustomJSONEncoder)
+                responsejson = json.dumps(dict([(metadataName, metadatadict), (rootName, recordsdict)]), indent=1, cls=CustomJSONEncoder)
             else: 
-                responsejson = json.dumps(dict([("records", recordsdict)]), indent=1, cls=CustomJSONEncoder)
+                responsejson = json.dumps(dict([(rootName, recordsdict)]), indent=1, cls=CustomJSONEncoder)
             if callback:
                 web.header("Content-Type", "application/javascript") 
                 return callback + '(' + responsejson + ');'                 
@@ -213,7 +215,7 @@ def callservice(schemaname, servicename, querystring):
         #                metadatanode.append(fieldsnode)
             recordsdicts = [dict([(allfields[col], str(row[col])) for col in range(fieldcount) if (col in colsRequired)]) for row in rows]
             recordselements = [xml.Element('record', element) for element in recordsdicts]
-            recordsnode = xml.Element('records')
+            recordsnode = xml.Element(rootName)
             for recordelement in recordselements:
                 recordsnode.append(recordelement)
             root.append(recordsnode)
@@ -248,7 +250,7 @@ def callservice(schemaname, servicename, querystring):
         msg = "There was an error sending the email. Make sure that the email address has been verified in Amazon Simple Email Services" if type(e) == AmazonError else str(sys.exc_info()).decode('string_escape')
         if format in ['json', 'array']:
             metadatadict = OrderedDict([("duration", str(t2 - t1)), ("error", msg), ("idProperty", None), ("successProperty", 'success'), ("totalProperty", 'recordCount'), ("success", False), ("recordCount", 0), ("root", None), ("fields", None)])    
-            responsejson = json.dumps(dict([("metaData", metadatadict), ("records", None)]), indent=1)
+            responsejson = json.dumps(dict([(metadataName, metadatadict), (rootName, None)]), indent=1)
             if callback:
                 web.header("Content-Type", "application/javascript") 
                 return callback + '(' + responsejson + ');'                 
@@ -259,7 +261,7 @@ def callservice(schemaname, servicename, querystring):
         else:
             return "DOPA Services Error: " + msg
             
-def gettypefromtypecode(typecode):  # returns a string representation of the psycopg2.cursor.type_code value which is shown in the response - the values come from the pg_type table in PostGIS and these are not complete yet
+def gettypefromtypecode(typecode):  # returns a string representation of the psycopg2.cursor.type_code value which is shown in the response - the values come from the pg_type table in PostGIS and these are not complete yet - in the output parameter data type section
     if (typecode in [16, 1000, 1560, 1561]): return "boolean"
     elif (typecode in [20, 21, 23]): return "integer"
     elif (typecode in [26, 790, 1005, 1007, 1028, 1016, 1021, 1022, 1700]): return "number"
@@ -272,6 +274,7 @@ def gettypefromtypecode(typecode):  # returns a string representation of the psy
     
 def gettypefrompostgresql(postgresqltype):  # returns a string representation of the SQL data type - this is used to show the data type in the html pages
     if (postgresqltype.lower() in ['integer']): return "integer"
+    elif (postgresqltype.lower() in ['boolean']): return "boolean"
     elif (postgresqltype.lower() in ['single precision']): return "single"
     elif (postgresqltype.lower() in ['double precision']): return "double"
     elif (postgresqltype.lower() in ['array']): return "array"

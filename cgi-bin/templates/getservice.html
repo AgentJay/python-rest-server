@@ -8,7 +8,7 @@ $def with (schemaname, servicename, servicedesc, inparams, outparams, header, fo
 		$:header
 		<h2><a href="../../services/">Schemas</a> | <a href="../$schemaname/">$schemaname[:1]$schemaname[1:2].upper()$schemaname[2:] Schema</a> | $servicename Service</h2>
 		<table class="table" cellspacing="0"><a><tr><th>Service</th><th colspan="4">Description</th></tr>
-		<tr><td>$servicename</td><td colspan="4">$:servicedesc</td></tr>
+		<tr><td>$servicename</td><td colspan="4" style="padding-bottom: 15px">$:servicedesc</td></tr>
 		
 		$if inparams:
 			<tr><td></td><th colspan="4">Input Parameters</th></tr>
@@ -19,11 +19,7 @@ $def with (schemaname, servicename, servicedesc, inparams, outparams, header, fo
 					<tr><td></td><td>$inparam['name']</td><td>$:inparam['description']</td><td>$inparam['type']</td><td>$:inparam['default']</td></tr>
 				$else:
 					<tr><td></td><td><i>$inparam['name']</i></td><td>$:inparam['description'] (optional)</td><td>$inparam['type']</td><td>$:inparam['default']</td></tr>
-			<tr><td></td><td><i>format</i></td><td>The reponse format (optional)</td><td>string (json | array | xml)</td><td>json</td></tr>
-			$if outparams:
-				<tr><td></td><td><i>fields</i></td><td>The list of fields to be returned - these must be one or more of the output parameters listed below separated by commas(optional)</td><td>array</td><td>all fields</td></tr>
-			<tr><td></td><td><i>includemetadata</i></td><td>Sets whether to include a metadata section in the  response which includes summary information about the results (optional)</td><td>string (true | false)</td><td>true</td></tr>
-			<tr><td></td><td><i>parseparams</i></td><td>Sets whether to parse the input parameters and raise an error if they are not valid (optional)</td><td>string (true | false)</td><td>true</td></tr>
+			<tr><td></td><td colspan="4" style="padding-bottom: 15px">The standard optional parameters are not shown (see the Help Documentation for more information)</td></tr>
 		
 		$if outparams:		
 			<tr><td></td><th colspan="4">Output Parameters</th></tr>
