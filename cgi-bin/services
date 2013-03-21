@@ -93,8 +93,10 @@ class getservice:
                     # remove the  ARRAY[] statement
                     paramdefs = [(p[6:-1] if 'ARRAY' in p else p) for p in paramdefs]
                     # remove any typecast symbols, e.g. ::text
+#                    paramdefs = [p[:p.find('::')] if '::' in p else p for p in paramdefs] # some are complicated, e.g. ['wdpa_id integer, ', "rlstatus character[] DEFAULT ARRAY['EN'::text, 'CR'::text, 'VU'::text, 'NT'::text, 'LC'::text, 'EX'::text, 'EW'::text, 'DD'::text]"]
                     paramdefs = [p.replace("::text", "") for p in paramdefs]
                     paramdefs = [p.replace("::integer", "") for p in paramdefs]
+                    paramdefs = [p.replace("::character varying", "") for p in paramdefs]
                     # remove any quotes, e.g. 'CR','DD' -> CR, DD
                     paramdefs = [p.replace("'", "") for p in paramdefs]
                     # remove any spaces, e.g. CR, DD -> CR,DD

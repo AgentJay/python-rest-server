@@ -10,8 +10,9 @@ $def with (schemaname, servicename, servicedesc, inparams, outparams, header, fo
 		<table class="table" cellspacing="0"><a><tr><th>Service</th><th colspan="4">Description</th></tr>
 		<tr><td>$servicename</td><td colspan="4" style="padding-bottom: 15px">$:servicedesc</td></tr>
 		
+		<!--Input parameters-->
+		<tr><td></td><th colspan="4">Input Parameters</th></tr>
 		$if inparams:
-			<tr><td></td><th colspan="4">Input Parameters</th></tr>
 			<tr><td></td><td class="smallth" style="min-width: 100px">Name</td><td class="smallth">Description</td><td class="smallth" style="min-width: 140px">Type</td><td class="smallth" style="min-width: 60px">Default value</td></tr>
 				
 			$for inparam in inparams:
@@ -19,17 +20,22 @@ $def with (schemaname, servicename, servicedesc, inparams, outparams, header, fo
 					<tr><td></td><td>$inparam['name']</td><td>$:inparam['description']</td><td>$inparam['type']</td><td>$:inparam['default']</td></tr>
 				$else:
 					<tr><td></td><td><i>$inparam['name']</i></td><td>$:inparam['description'] (optional)</td><td>$inparam['type']</td><td>$:inparam['default']</td></tr>
-			<tr><td></td><td colspan="4" style="padding-bottom: 15px">The standard optional parameters are not shown (see the Help Documentation for more information)</td></tr>
-		
+		$else:
+			<tr><td></td><td colspan="4">No mandatory input parameters</td></tr>
+		<tr><td></td><td colspan="4" style="padding-bottom: 15px">The standard optional parameters are not shown (see the Help Documentation for more information)</td></tr>
+				
+		<!--Output parameters-->
+		<tr><td></td><th colspan="4">Output Parameters</th></tr>
 		$if outparams:		
-			<tr><td></td><th colspan="4">Output Parameters</th></tr>
 			<tr><td></td><td class="smallth">Name</td><td class="smallth">Description</td><td class="smallth" colspan="2">Type</td></tr>
 
 			$for outparam in outparams: 
 				<tr><td></td><td>$outparam['name']</td><td>$:outparam['description']</td><td colspan="2">$outparam['type']</td></tr>
+		$else:
+			<tr><td></td><td colspan="4">No output parameters</td></tr>
 			
+		<!--Example calls-->
 		<tr><td></td><th colspan="4">Example calls</th></tr>
-		<tr><td></td><td colspan="4" class="smallth">Mandatory parameters</td></tr>
 			
 		$def getqueryparams(params, queryparams):
 			$for param in params:
@@ -74,9 +80,16 @@ $def with (schemaname, servicename, servicedesc, inparams, outparams, header, fo
 			$# build the optional parameters for the query string
 			$ getqueryparams([p for p in inparams if (p['default']!= '')], queryparams)
 			$ querystring = "?" + "&".join([param for param in queryparams])
+
+		<!--Mandatory parameters example calls-->
+		<tr><td></td><td colspan="4" class="smallth">REST call using mandatory parameters</td></tr>
 		$if mandatoryquerystring!='?':		
 			<tr><td></td><td colspan="4"><a href='$mandatoryquerystring' target='__examplecall' title="Example call" class="example">$mandatoryquerystring</a></td></tr>
-		<tr><td></td><td colspan="4" class="smallth">Optional parameters</td></tr>
+		$else:
+			<tr><td></td><td colspan="4">No mandatory input parameters</td></tr>
+
+		<!--Optional parameters example calls-->
+		<tr><td></td><td colspan="4" class="smallth">REST call using optional parameters</td></tr>
 		$if len(mandatoryquerystring)!=len(querystring):
 			<tr><td></td><td colspan="4"><a href='$querystring' target='__examplecall' title="Example call" class="example">$querystring</a></td></tr>
 		$if querystring!='?': 
@@ -87,6 +100,13 @@ $def with (schemaname, servicename, servicedesc, inparams, outparams, header, fo
 		<tr><td></td><td colspan="4"><a href='$(prefix)format=array&includemetadata=false' target='__examplecall' title="Example call" class="example">$(prefix)format=array&includemetadata=false</a></td></tr>
 		$if (len(outparams)>0):
 			<tr><td></td><td colspan="4"><a href='$(prefix)format=json&fields=$outparams[0]['name']' target='__examplecall' title="Example call" class="example">$(prefix)format=json&fields=$outparams[0]['name']</a></td></tr>
+
+		<!--Excel endpoint-->
+		<tr><td></td><td colspan="4" class="smallth">Excel endpoint</td></tr>
+		$if mandatoryquerystring!='?':		
+			<tr><td></td><td colspan="4"><a href='$(mandatoryquerystring)&format=xml' target='__examplecall' title="Example call" class="example">$(mandatoryquerystring)&format=xml</a></td></tr>
+		$else:
+			<tr><td></td><td colspan="4"><a href='$(mandatoryquerystring)format=xml' target='__examplecall' title="Example call" class="example">$(mandatoryquerystring)format=xml</a></td></tr>
 		</table>
 		
 		$:footer		

@@ -2,9 +2,11 @@ p {
 	font-size: 13px;
 	font-family: Arial, Helvetica, sans-serif;
 }
+
 li {
 	font-family: Arial, Helvetica, sans-serif;
 	font-size: 13px;
+	padding: 1px;
 }
 h1 {
 	color: #444;
@@ -42,7 +44,7 @@ table.table {
 	font-family: Arial, Helvetica, sans-serif;
 	text-shadow: 1px 1px 0px #fff;
 	text-align: left;
-	min-width: 50%;
+	min-width: 30%;
 }
 
 table.table th {
@@ -140,8 +142,9 @@ img {
 .code {
 	background-color: #E5EFF7;
 	padding-top: 0.0em;
+	margin-left:4em;
+	margin-right:4em;
 	padding-bottom: 0.2em;
-	width: 98%;
 	font: 100% Monospace, Courier New, Courier;
 	color: #006;
 	font-size: 12px;
@@ -155,22 +158,19 @@ img {
 	padding-top: 25px;
 	padding-bottom: 25px;
 }
-li{
-	padding:1px;
+.toc1 {
+	list-style: none;
+	padding-top: 10px;
+	font-size: 1em;
+	font-style: italic;
 }
-.toc1{
-	list-style:none;
-	padding-top:10px;
-	font-size:1em;
-	font-style:italic;
+.toc2 {
+	list-style: none;
+	padding-left: 30px;
+	font-size: 0.9em;
 }
-.toc2{
-	list-style:none;
-	padding-left:30px;
-	font-size:0.9em;
-}
-.toc3{
-	list-style:none;
-	padding-left:60px;
-	font-size:0.8em;
+.toc3 {
+	list-style: none;
+	padding-left: 60px;
+	font-size: 0.8em;
 }

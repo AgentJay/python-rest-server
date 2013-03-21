@@ -1,35 +1,95 @@
-<html>
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
 	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 		<title>DOPA REST Services Directory Help</title>
 		<link rel="stylesheet" type="text/css" href="../styles/styles.css" />
+		<style type="text/css">
+			body {
+				margin: 20px;
+			}
+			h2 {
+				margin: 0px;
+				padding-top: 20px;
+			}
+			h3 {
+				margin: 0px;
+				padding-top: 10px;
+			}
+			h4 {
+				margin: 0px;
+				padding-top: 10px;
+			}
+		</style>
 	</head>
 	<body>
 		<h1>DOPA REST Services Directory Help</h1>
 
-		<ul>
-			<li class="toc1"><a href="#background">Background</a></li>
-			<li class="toc1"><a href="#understanding">Understanding the REST Services Directory</a></li>
-			<li class="toc2"><a href="#rr">REST request</a></li>
-			<li class="toc3"><a href="#ipdt">Input parameter data types</a></li>
-			<li class="toc3"><a href="#sop">Standard optional parameters</a></li>
-			<li class="toc3"><a href="#spv">Specifying parameter values</a></li>
-			<li class="toc2"><a href="#rr2">REST response</a></li>
-			<li class="toc3"><a href="#metadata">Metadata section</a></li>
-			<li class="toc3"><a href="#opdt">Output parameter data types</a></li>
-			<li class="toc3"><a href="#rs">Records section</a></li>
-			<li class="toc1"><a href="#consuming">Consuming REST Services</a></li>
-			<li class="toc2"><a href="#websites">Consuming REST services in websites</a></li>
-			<li class="toc3"><a href="#ud">Using Dojo</a></li>
-			<li class="toc3"><a href="#ue">Using extJS</a></li>
-			<li class="toc2"><a href="#desktop">Consuming REST services in desktop tools</a></li>
-			<li class="toc1"><a href="#publishing">Publishing REST Services</a></li>
-			<li class="toc2"><a href="#b2">Background</a></li>
-			<li class="toc2"><a href="#sbssp">Step-by-step service publishing</a></li>
-			<li class="toc2"><a href="#lac">Licensing and Copyright</a></li>
-			<li class="toc2"><a href="#s">Support</a></li>
+		<h2 style="padding-top:20px"><a name="contents">Contents</a></h2>
+		<ul style="padding-left: 0px;">
+			<li class="toc1">
+				<a href="#background">Background</a>
+			</li>
+			<li class="toc1">
+				<a href="#understanding">Understanding the REST Services Directory</a>
+			</li>
+			<li class="toc2">
+				<a href="#rr">REST request</a>
+			</li>
+			<li class="toc3">
+				<a href="#ipdt">Input parameter data types</a>
+			</li>
+			<li class="toc3">
+				<a href="#sop">Standard optional parameters</a>
+			</li>
+			<li class="toc3">
+				<a href="#spv">Specifying parameter values</a>
+			</li>
+			<li class="toc2">
+				<a href="#rr2">REST response</a>
+			</li>
+			<li class="toc3">
+				<a href="#metadata">Metadata section</a>
+			</li>
+			<li class="toc3">
+				<a href="#opdt">Output parameter data types</a>
+			</li>
+			<li class="toc3">
+				<a href="#rs">Records section</a>
+			</li>
+			<li class="toc1">
+				<a href="#consuming">Consuming REST Services</a>
+			</li>
+			<li class="toc2">
+				<a href="#websites">Consuming REST services in websites</a>
+			</li>
+			<li class="toc3">
+				<a href="#ud">Using Dojo</a>
+			</li>
+			<li class="toc3">
+				<a href="#ue">Using extJS</a>
+			</li>
+			<li class="toc2">
+				<a href="#desktop">Consuming REST services in desktop tools</a>
+			</li>
+			<li class="toc1">
+				<a href="#publishing">Publishing REST Services</a>
+			</li>
+			<li class="toc2">
+				<a href="#b2">Background</a>
+			</li>
+			<li class="toc2">
+				<a href="#sbssp">Step-by-step service publishing</a>
+			</li>
+			<li class="toc2">
+				<a href="#lac">Licensing and Copyright</a>
+			</li>
+			<li class="toc1">
+				<a href="#s">Support</a>
+			</li>
 		</ul>
 
-		<h2><a name="background">Background</h2></h2>
+		<h2><a name="background">Background</a></h2>
 		<p>
 			This document contains help documentation for the Digital Observatory of Protected Areas (DOPA) REST Services Directory. The REST Services Directory is a catalog of information services available through the DOPA initiative that can be used within information systems such as websites and client applications. The services provide a wide range of information about protected areas from species and habitat information to land cover and fire information. For more information about the DOPA initiative see <a href='http://dopa.jrc.ec.europa.eu/' target='_ext'>here</a>.
 		</p>
@@ -39,7 +99,7 @@
 		<p>
 			This help document provides information for both providers and consumers of the REST Services. For details on how to publish your data through REST services, see <a href="#publishing">here</a>. For details on how to access and use the services see the <a href="#consuming">following section</a>.
 		</p>
-		<h2><a name="understanding">Understanding the REST Services Directory</h2>
+		<h2><a name="understanding">Understanding the REST Services Directory</a></h2>
 		<p>
 			There are many ways in which the REST Services can be consumed and used from applications, websites and tools etc. REST, short for Representational State Transfer, provides a simple, open Web interface to services hosted by the Joint Research Centre.
 			All services exposed by the REST Services Directory are accessible through a hierarchy of endpoints or Uniform Resource Locators (URLs) for each service published at JRC. When using the REST Services, you typically start
@@ -58,7 +118,7 @@
 		</p>
 		<div class="restimg"><img src='images/rest3.png'>
 		</div>
-		<h3><a name="rr">REST request</h3>
+		<h3><a name="rr">REST request</a></h3>
 		<p>
 			REST requests can be created using the information on the service page. The list of parameters for the service includes the input parameters that you must pass to the service and the output parameters that are returned from the server (if specified in the <span class='param'>fields</span> parameter). For the input parameters, a service
 			can have mandatory parameters and optional parameters (the parameter name is in italics for optional parameters). For each of the parameters the following information is given:
@@ -77,7 +137,7 @@
 				<td><b>Default value</b></td><td>(<i>input only</i>) If a parameter is optional then a default value will be specified in this column. Default values are values that will be included in the REST request if not explicitly specified. </td>
 			</tr>
 		</table>
-		<h4><a name="ipdt">Input parameter data types</h4>
+		<h4><a name="ipdt">Input parameter data types</a></h4>
 		<p>
 			All services contain input parameters with specific data types which must be complied with in order to use the services succesfully. The following data types are supported for input parameters:
 		</p>
@@ -107,7 +167,7 @@
 		<div class='code'>
 			http://dopa-services.jrc.ec.europa.eu/services/especies/get_pa_species_list?wdpa_id=785&rlstatus=EN,CR
 		</div>
-		<h4><a name="sop">Standard optional parameters</h4>
+		<h4><a name="sop">Standard optional parameters</a></h4>
 		<p>
 			For all REST services there are a number of standard optional parameters that can also be specified in the REST service call:
 		</p>
@@ -158,13 +218,13 @@
 		<div class="code">
 			http://dopa-services.jrc.ec.europa.eu/services/especies/get_pa_species_list?wdpa_id=785&rlstatus=EN,CR&format=json&fields=iucn_species_id&includemetadata=true&parseparams=true&metadataname=md&rootname=r
 		</div>
-		<h4><a name="spv">Specifying parameter values</h4>
+		<h4><a name="spv">Specifying parameter values</a></h4>
 		<p>
 			Parameter values for the REST Service calls can be done by simply appending the parameter values to the end of the service end point as a set of key/value pairs preceeded by a question mark. There are example calls in each of the service pages that
 			show the syntax for calling a particular service (both using mandatory and optional parameters). All mandatory parameter values must be specified, and all data types must be adhered to otherwise the service call will fail. Parameters can be specified in any order (both mandatory and optional) and
 			any parameters whose names do not match those of the input/output parameters will return an error (unless the parseparams flag is set to false). If mandatory parameters are missing or values are invalid then the server will return an error. Finally, parameter values are case sensitive, e.g. rlstatus=VU and <i>not</i> rlstatus=vu.
 		</p>
-		<h3><a name="rr2">REST response</h3>
+		<h3><a name="rr2">REST response</a></h3>
 		<p>
 			The REST response from the server will include all of the data and also an optional metadata section (specified by the <span class='param'>includemetadata</span> parameter). The sample below shows a typical json response:
 		</p>
@@ -372,7 +432,7 @@
 				<td>fields</td><td>A list of all of the fields that are returned for each record. Each field shows the name of the field and its data type. For more information on return data types see the section below.</td>
 			</tr>
 		</table>
-		<h4><a name="opdt">Output parameter data types</h4>
+		<h4><a name="opdt">Output parameter data types</a></h4>
 		<p>
 			All services contain input parameters with specific data types which must be complied with in order to use the services succesfully. The following data types are supported for input parameters:
 		</p>
@@ -399,16 +459,16 @@
 				<td>date</td><td>Date only</td>
 			</tr>
 		</table>
-		<h4><a name="rs">Records section</h4>
+		<h4><a name="rs">Records section</a></h4>
 		<p>
 			The records section of the response includes all of the data requested by the REST service call as an array of rows. Each row contains the information requested in the <span class='param'>fields</span> parameter, or all fields if the <span class='param'>fields</span> parameter is not specified. All data will be encoded using the standard encoding for that format.
 		</p>
-		<h2><a name="consuming">Consuming REST Services</h2>
+		<h2><a name="consuming">Consuming REST Services</a></h2>
 		<h3><a name="websites">Consuming REST services in websites</a></h3>
 		<p>
 			REST services can be accessed and used in websites using Javascript by using native Javascript HTTP GET methods or by using Javascript Frameworks, like jQuery or Dojo. The following examples show how to use the REST services from a number of commonly used libraries.
 		</p>
-		<h4><a name="ud">Using Dojo</h4>
+		<h4><a name="ud">Using Dojo</a></h4>
 		<p>
 			This simple example HTML page shows you how to request a list of species for a protected area and show the number of species found together with the list. The following example can be copy and pasted into <a href='http://jsbin.com' target="_jsbin">JSBin</a> to see it work:
 		</p>
@@ -466,14 +526,134 @@
 			&lt;/html&gt;
 			<br/>
 		</div>
-		<h4><a name="ue">Using extJS</h4>
+		<h4><a name="ue">Using extJS</a></h4>
+		<p></p>
 		<p>
-			&lt;TODO&gt;
+			The following example HTML page shows you how to request a information from a REST service and put that into an extJS chart. The following example can be copy and pasted into <a href='http://jsbin.com' target="_jsbin">JSBin</a> to see it work:
 		</p>
+		<div class="code">
+			&lt;!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd"&gt;
+			<br/>
+			&lt;html xmlns="http://www.w3.org/1999/xhtml" lang="en"&gt;
+			<br/>
+			&nbsp;&lt;head&gt;
+			<br/>
+			&nbsp;&nbsp;&lt;meta http-equiv="Content-Type" content="text/html; charset=utf-8" /&gt;
+			<br/>
+			&nbsp;&nbsp;&lt;title&gt;DOPA REST Client&lt;/title&gt;
+			<br/>
+			&nbsp;&nbsp;&lt;script src=&quot;https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
+			<br/>
+			&nbsp;&nbsp;&lt;script src=&quot;http://ehabitat-wps.jrc.ec.europa.eu/dopasimple/libs/ext/adapter/ext-base.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
+			<br/>
+			&nbsp;&nbsp;&lt;script src=&quot;http://ehabitat-wps.jrc.ec.europa.eu/dopasimple/libs/ext/ext-all.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
+			<br/>
+			&nbsp;&nbsp;&lt;script src=&quot;http://ehabitat-wps.jrc.ec.europa.eu/dopasimple/libs/highchart/highcharts-2.3.2.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
+			<br/>
+			&nbsp;&nbsp;&lt;script language=&quot;JavaScript&quot; type=&quot;text/javascript&quot;&gt;
+			<br/>
+			&nbsp;&nbsp;&nbsp;Ext.onReady(function() {
+			<br/>
+			&nbsp;&nbsp;&nbsp;&nbsp;var chartOptions = {
+			<br/>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;chart : {
+			<br/>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;renderTo : &#39;container&#39;,
+			<br/>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;type : &#39;column&#39;
+			<br/>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;},
+			<br/>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;yAxis : {
+			<br/>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;title : {
+			<br/>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;text : &#39;Agricultural pressure&#39;
+			<br/>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+			<br/>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;},
+			<br/>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;xAxis : {
+			<br/>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;title : {
+			<br/>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;text : &#39;Ranking for Tanzania&#39;
+			<br/>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+			<br/>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;},
+			<br/>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;series : [{
+			<br/>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;data : [],
+			<br/>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}]
+			<br/>
+			&nbsp;&nbsp;&nbsp;&nbsp;};
+			<br/>
+			&nbsp;&nbsp;&nbsp;&nbsp;var datastore = new Ext.data.Store({
+			<br/>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;autoDestroy : true,
+			<br/>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;autoLoad : {
+			<br/>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;params : {
+			<br/>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&#39;countryid&#39; : 834,
+			<br/>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&#39;parseparams&#39; : false,
+			<br/>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&#39;metadataname&#39; : &#39;metaData&#39;
+			<br/>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;},
+			<br/>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;callback : function(records) {
+			<br/>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Ext.each(records, function(item) {
+			<br/>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;chartOptions.series[0].data.push([String(item.get(&#39;wdpa_id&#39;)), item.get(&#39;normalised_ap&#39;)]);
+			<br/>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}, this);
+			<br/>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;var chart = new Highcharts.Chart(chartOptions);
+			<br/>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}
+			<br/>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;},
+			<br/>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;proxy : new Ext.data.ScriptTagProxy({
+			<br/>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;method : &#39;GET&#39;,
+			<br/>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;url : &#39;http://dopa-services.jrc.ec.europa.eu/services/ehabitat/get_agri_pressure_country&#39;,
+			<br/>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}),
+			<br/>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;reader : new Ext.data.JsonReader()
+			<br/>
+			&nbsp;&nbsp;&nbsp;&nbsp;});
+			<br/>
+			&nbsp;&nbsp;&nbsp;});
+			<br/>
+			&nbsp;&nbsp;&lt;/script&gt;
+			<br/>
+			&nbsp;&lt;/head&gt;
+			<br/>
+			&nbsp;&lt;body&gt;
+			<br/>
+			&nbsp;&nbsp;&lt;div id=&quot;container&quot; style=&quot;min-width: 400px; height: 400px; margin: 0 auto&quot;&gt;&lt;/div&gt;
+			<br/>
+			&nbsp;&lt;/body&gt;
+			<br/>
+			&lt;/html&gt;
+			<br/>
+		</div>
 		<h3><a name="desktop">Consuming REST services in desktop tools</a></h3>
 		<p>
 			The REST services can also be used in desktop applications, such as Microsoft Office, by using the service endpoint. For many desktop applications the <span class='param'>format</span> parameter should specified as xml.
 		</p>
+		<h4>Importing data into Microsoft Excel</h4>
 		<p>
 			The following walkthrough shows you how to use the REST services in Microsoft Excel 2010 by retrieving a list of species for a protected area:
 		</p>
@@ -485,17 +665,30 @@
 				Click on 'From Other Sources' and select 'From XML Data Import'
 			</li>
 			<li>
-				In the File name text box, enter the endpoint of the REST service that contains the data you require (e.g. http://dopa-services.jrc.ec.europa.eu/services/especies/get_pa_species_list?wdpa_id=785&rlstatus=EN,CR,VU&format=xml)
+				In the File name text box, enter the endpoint of the REST service that contains the data you require - this is shown in the Example Calls section of the Service Page (e.g. http://dopa-services.jrc.ec.europa.eu/services/especies/get_pa_species_list?wdpa_id=785&format=xml)
 			</li>
 			<li>
 				Click Open and when prompted select where you want to put the data
 			</li>
 			<li>
-				The data is imported into Excel as a spreadsheet
+				The data is imported into Excel as a spreadsheet.
+			</li>
+		</ol>
+		<h4>Refreshing data into Microsoft Excel</h4>
+		<p>One of the advantages of importing data into Desktop tools is that it can be simply refreshed when the data from the service changes. To update the data in Excel:</p>
+		<ol>
+			<li>
+				Open Microsoft Excel 2010 and click on the tab that contains the data you want to update
+			</li>
+			<li>
+				Click on 'Table Tools | Design' and click on 'Refresh'. This will update the data in the spreadsheet using the new data from the server. 
+			</li>
+			<li>
+				To update any pivot tables, charts or reports, click on the appropriate tab and click on Refresh
 			</li>
 		</ol>
 		<h2><a name="publishing">Publishing REST Services</a></h2>
-		<h3><a name="b2">Background</h3>
+		<h3><a name="b2">Background</a></h3>
 		<p>
 			The DOPA REST Services Directory makes available in HTML format, functions from a Postgresql database. It supports the following features to expose your data as a REST service:
 		</p>
@@ -516,7 +709,7 @@
 		<p>
 			To take advantage of these features you simply need to create a function in Postgresql with a description. Optionally you can add additional information to the funtion such as parameter descriptions.
 		</p>
-		<h3><a name="sbssp">Step-by-step service publishing</h3>
+		<h3><a name="sbssp">Step-by-step service publishing</a></h3>
 		<h4>Create the Function to publish</h4>
 		<p>
 			In Postgresql create a function to retrieve data within a schema which starts with an 'e' (optionally with a number of input parameters).
@@ -524,12 +717,20 @@
 			In addition, the function must be accessible using the appuser account.
 		</p>
 		<h4>Define the return type</h4>
+		<h5>Scalar type</h5>
 		<p>
 			If you want to return simple scalar data then define the output as a simple data type. For example:
 		</p>
 		<div class="code">
 			CREATE OR REPLACE FUNCTION getcountryspeciescount(country_id integer, presence_id integer[]) RETURNS bigint AS ..
 		</div>
+		<p>
+			This will return a single value with the name of the function by default (e.g. in this case {"getcountryspeciescount": 425}). If you want to specify a name for the return value then you will need to name it as an OUT parameter:
+		</p>
+		<div class="code">
+			CREATE OR REPLACE FUNCTION getcountryspeciescount(IN country_id integer, IN presence_id integer[], OUT spcount bigint) RETURNS bigint AS ..
+		</div>
+		<h5>Table type</h5>
 		<p>
 			To return data with a specific schema, define a TABLE return data type (see <a href='http://www.postgresql.org/docs/9.1/static/sql-createfunction.html' target='_ext'>here</a> for more information). For example:
 		</p>
@@ -578,12 +779,12 @@
 		<p>
 			If only some parameters have a description available then all of the rest of the parameters will appear with 'No Description' beside the parameter name in the Services Directory.
 		</p>
-		<h3><a name="lac">Licensing and Copyright</h3>
+		<h3><a name="lac">Licensing and Copyright</a></h3>
 		<p>
 			When publishing services into the REST Services Directory, particular care must be taken to abide by any license or copyright restrictions, particularly where data has been derived directly from an external partner. Currently JRC are not licensed to
 			redeliver any spatial data from external partners including IUCN and UNEP-WCMC.
 		</p>
-		<h3><a name="s">Support</h3>
+		<h2><a name="s">Support</a></h2>
 		<p>
 			For support/comments/amendments please email: <a href="mailto:andrew.cottam@jrc.ec.europa.eu">andrew.cottam@jrc.ec.europa.eu</a>
 		</p>
