@@ -6,7 +6,7 @@ from decimal import Decimal
 from psycopg2 import ProgrammingError, DataError, IntegrityError
 from dbconnect import dbconnect, twilio, amazon_ses
 from orderedDict import OrderedDict
-import xml.etree.ElementTree as xml
+from lxml import etree
 
 urls = (
   "/(.+)/(.+)", "getservice",
@@ -126,7 +126,7 @@ def callservice(schemaname, servicename, querystring):
         rootName = params.setdefault('rootname', 'records')
         parseparams = params.setdefault('parseparams', 'true')
         # remove the standard optional parameters from the dictionary so we are left with just the parameters required for the function
-        del (params['format'], params['fields'], params['callback'], params['includemetadata'], params['parseparams'],params['metadataname'],params['rootname'])
+        del (params['format'], params['fields'], params['callback'], params['includemetadata'], params['parseparams'], params['metadataname'], params['rootname'])
 
         # PARSE AND CONVERT THE DATA TYPES OF THE OTHER INPUT PARAMETERS
         conn = dbconnect("species_especies_schema")
@@ -203,7 +203,7 @@ def callservice(schemaname, servicename, querystring):
                 return responsejson
         
         elif format == 'xml':
-            root = xml.Element('results')
+            root = etree.Element('results')
         #            THERE ARE ISSUES WITH THE XML SERIALISER PARSING INTEGERS AND IN THE FIELD TYPES THERE ARE INTEGERS SO THE METADATADICT OBJECT CAUSES THE XML PARSER TO FAIL AT THE MOMENT SO LEAVING OUT METADATA
         #            if (includemetadata.lower() == 'true'):
         #                return metadatadict
@@ -215,14 +215,14 @@ def callservice(schemaname, servicename, querystring):
         #                for fieldelement in fieldselements:
         #                    fieldsnode.append(fieldelement)
         #                metadatanode.append(fieldsnode)
-            recordsdicts = [dict([(allfields[col], str(row[col])) for col in range(fieldcount) if (col in colsRequired)]) for row in rows]
-            recordselements = [xml.Element('record', element) for element in recordsdicts]
-            recordsnode = xml.Element(rootName)
+            recordsdicts = [OrderedDict([(allfields[col], str(row[col]).decode('utf-8')) for col in range(fieldcount) if (col in colsRequired) and str(row[col]) != 'None']) for row in rows ]  #
+            recordselements = [etree.Element('record', element) for element in recordsdicts]
+            recordsnode = etree.Element(rootName)
             for recordelement in recordselements:
                 recordsnode.append(recordelement)
             root.append(recordsnode)
             web.header("Content-Type", "text/xml")
-            return xml.tostring(root)
+            return etree.tostring(root)
         
         elif format == 'sms':
             _twilio = twilio()
