@@ -65,7 +65,10 @@ $def with (schemaname, servicename, servicedesc, inparams, outparams, header, fo
 						$else:
 							$ value = param['default']
 					$else:
-						$ value = "1,2"
+						$if (param['name'] in ['wdpa_ids']):
+							$ value = "555542830,555542831"
+						$else: 
+							$ value = "1,2"
 				$if (param['type']=='date'):
 					$ value = "03/31/2012"
 				$ queryparams.append(param['name'] + "=" + value)
