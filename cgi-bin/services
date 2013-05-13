@@ -25,7 +25,7 @@ class CustomJSONEncoder(json.JSONEncoder):
         if isinstance(obj, Decimal):
             return float(obj)
         elif isinstance(obj, datetime.date):
-            return obj.isoformat()
+            return obj.strftime("%d/%m/%Y %H:%M:%S")
         return json.JSONEncoder.default(self, obj)
 
 class getschemas:
@@ -103,6 +103,7 @@ class getservice:
                     paramdefs = [p.replace(" ", "") for p in paramdefs]
                 # fill in the paramdefs
                 paramdefs[len(paramdefs):] = ['' for i in range(len(params) - len(paramdefs))]
+#                return params
                 # create a dictionary containing the parameter information
                 paramsdict = [dict([('mode', params[i][2]), ('name', params[i][3]), ('type', gettypefrompostgresql(params[i][4])), ('description', paramdesc[i]), ('default', paramdefs[i])]) for i in range(len(params))]
                 return render.getservice(schemaname, servicename, getservicedescription(params[0][1]), [p for p in paramsdict if (p['mode'] == 'IN')], [p for p in paramsdict if (p['mode'] == 'OUT')], render.header(), render.footer())
@@ -116,7 +117,7 @@ def callservice(schemaname, servicename, querystring):
             
         # PARSE THE STANDARD OPTIONAL INPUT PARAMETERS
         # get the input parameters
-        params = OrderedDict([(q.split("=")[0], urllib.unquote(q.split("=")[1])) for q in querystring.split("&")])
+        params = OrderedDict([(q.split("=")[0], urllib.unquote(q.split("=")[1])) for q in querystring.split("&")])  # the unquoting is to handle encoded parameters (like from extJS - 1,2,3 as a parameter becomes 1%2C2%2C3
         # get the standard optional parameters from the url 
         format = params.setdefault('format', 'json') 
         fields = params.setdefault('fields', '').split(",")  # fields will be passed as an array, e.g. iucn_species_id,wdpa_id
@@ -180,8 +181,7 @@ def callservice(schemaname, servicename, querystring):
         fieldsdict = [dict([("name", d.name), ("type", gettypefromtypecode(d.type_code))]) for d in conn.cur.description if (d.name in fields)]
         if len(fieldsdict) != len(fields):
             raise DopaServicesError('Invalid output fields')
-        msg = conn.cur.statusmessage
-        metadatadict = OrderedDict([("duration", str(t2 - t1)), ("error", None), ("idProperty", conn.cur.description[0].name), ("successProperty", 'success'), ("totalProperty", 'recordCount'), ("success", True), ("recordCount", int(msg[msg.index(" ") + 1:])), ("root", rootName), ("fields", fieldsdict)])    
+        metadatadict = OrderedDict([("duration", str(t2 - t1)), ("error", None), ("idProperty", conn.cur.description[0].name), ("successProperty", 'success'), ("totalProperty", 'recordCount'), ("success", True), ("recordCount", int(conn.cur.rowcount)), ("root", rootName), ("fields", fieldsdict)])    
         
         # RECORDS SECTION OF THE RESPONSE
         colsRequired = [allfields.index(field) for field in fields]
@@ -275,13 +275,14 @@ def gettypefromtypecode(typecode):  # returns a string representation of the psy
     else: return "Undefined"
     
 def gettypefrompostgresql(postgresqltype):  # returns a string representation of the SQL data type - this is used to show the data type in the html pages
-    if (postgresqltype.lower() in ['integer']): return "integer"
+    if (postgresqltype.lower() in ['integer', 'bigint']): return "integer"
     elif (postgresqltype.lower() in ['boolean']): return "boolean"
     elif (postgresqltype.lower() in ['single precision']): return "single"
     elif (postgresqltype.lower() in ['double precision']): return "double"
     elif (postgresqltype.lower() in ['array']): return "array"
     elif (postgresqltype.lower() in ['character varying', 'text']): return "string"
     elif (postgresqltype.lower() in ['date']): return "date"
+    elif (postgresqltype.lower() in ['timestamp with time zone']): return "datetime"
     else: return "unknown"
 
 def getservicedescription(fulldescription):

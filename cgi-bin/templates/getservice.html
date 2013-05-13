@@ -71,6 +71,8 @@ $def with (schemaname, servicename, servicedesc, inparams, outparams, header, fo
 							$ value = "1,2"
 				$if (param['type']=='date'):
 					$ value = "03/31/2012"
+				$if (param['type']=='datetime'):
+					$ value = "03/31/2012 10:15:25"
 				$ queryparams.append(param['name'] + "=" + value)
 
 		$ querystring = "?"
