@@ -25,7 +25,7 @@ class CustomJSONEncoder(json.JSONEncoder):
         if isinstance(obj, Decimal):
             return float(obj)
         elif isinstance(obj, datetime.date):
-            return obj.strftime("%d/%m/%Y %H:%M:%S")
+            return obj.isoformat()
         return json.JSONEncoder.default(self, obj)
 
 class getschemas:
@@ -70,7 +70,7 @@ class getservice:
                 
                 # parse the description text to get the parameters descriptions - the parameter descriptions are encoded using {<param_desc>$<param_desc>$<param_desc> etc}
                 paramdesc = []
-                paramdescgroups = re.search('{.*}', params[0][1])
+                paramdescgroups = re.search('{.*}', params[0][1].replace("\n","")) # replace line feeds otherwise the regex doesnt work
                 if (paramdescgroups):
                     paramdesc = paramdescgroups.group(0)[1:-1].split("$")
                 # fill in the parameter descriptions if they have not been written
