@@ -12,7 +12,8 @@ urls = (
   "/(.+)/(.+)", "getservice",
   "/(.+)/", "getservices",
   "/manager", "manager",
-  "/", "getschemas"
+  "/", "getschemas",
+  "/getQuadKeySpecies", "getQuadKeySpecies"
   )
 
 class DopaServicesError(Exception):
@@ -70,7 +71,7 @@ class getservice:
                 
                 # parse the description text to get the parameters descriptions - the parameter descriptions are encoded using {<param_desc>$<param_desc>$<param_desc> etc}
                 paramdesc = []
-                paramdescgroups = re.search('{.*}', params[0][1].replace("\n","")) # replace line feeds otherwise the regex doesnt work
+                paramdescgroups = re.search('{.*}', params[0][1].replace("\n", ""))  # replace line feeds otherwise the regex doesnt work
                 if (paramdescgroups):
                     paramdesc = paramdescgroups.group(0)[1:-1].split("$")
                 # fill in the parameter descriptions if they have not been written
@@ -317,6 +318,10 @@ class manager:
         
         except (DopaServicesError, ProgrammingError):
             return "DOPA Services Error: " + str(sys.exc_info())
+
+class getQuadKeySpecies:
+    def GET(self):
+        return 'load of species from hbase'
         
 if __name__ == "__main__":
      app = web.application(urls, globals()).run()
