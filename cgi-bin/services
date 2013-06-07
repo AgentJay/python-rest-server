@@ -12,8 +12,7 @@ urls = (
   "/(.+)/(.+)", "getservice",
   "/(.+)/", "getservices",
   "/manager", "manager",
-  "/", "getschemas",
-  "/getQuadKeySpecies", "getQuadKeySpecies"
+  "/", "getschemas"
   )
 
 class DopaServicesError(Exception):
@@ -321,7 +320,7 @@ class manager:
 
 class getQuadKeySpecies:
     def GET(self):
-        return 'load of species from hbase'
+        return 'load of species from hbase' # need to implement getting data from Hadoop
         
 if __name__ == "__main__":
      app = web.application(urls, globals()).run()

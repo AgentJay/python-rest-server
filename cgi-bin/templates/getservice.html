@@ -58,6 +58,8 @@ $def with (schemaname, servicename, servicedesc, inparams, outparams, header, fo
 					$ value = "-77.1214580575966"
 				$elif (param['name'] in ['taxonomicgroup']):
 					$ value = "AVES"
+				$elif (param['name'] in ['quadkey']):
+					$ value = "132320330230021"
 				$if (param['type']=='array'):
 					$if (param['default']!=''):
 						$if ',' in param['default']:
