@@ -1,9 +1,9 @@
 #!/usr/bin/env python 
-import web, json, sys, exceptions, re, datetime, urllib
+import web, json, sys, exceptions, re, datetime, urllib, select, psycopg2
 from amazon_ses import AmazonSES, EmailMessage, AmazonError
 from twilio.rest import TwilioRestClient
 from decimal import Decimal
-from psycopg2 import ProgrammingError, DataError, IntegrityError
+from psycopg2 import ProgrammingError, DataError, IntegrityError, extensions
 from dbconnect import dbconnect, twilio, amazon_ses
 from orderedDict import OrderedDict
 from lxml import etree
@@ -126,8 +126,10 @@ def callservice(schemaname, servicename, querystring):
         metadataName = params.setdefault('metadataname', 'metadata')
         rootName = params.setdefault('rootname', 'records')
         parseparams = params.setdefault('parseparams', 'true')
+        isHadoop = params.setdefault('ishadoop', 'false')
+
         # remove the standard optional parameters from the dictionary so we are left with just the parameters required for the function
-        del (params['format'], params['fields'], params['callback'], params['includemetadata'], params['parseparams'], params['metadataname'], params['rootname'])
+        del (params['format'], params['fields'], params['callback'], params['includemetadata'], params['parseparams'], params['metadataname'], params['rootname'], params['ishadoop'])
 
         # PARSE AND CONVERT THE DATA TYPES OF THE OTHER INPUT PARAMETERS
         conn = dbconnect("species_especies_schema")
@@ -163,15 +165,21 @@ def callservice(schemaname, servicename, querystring):
             raise DopaServicesError('Unauthorised servicename')     
 
         # RUN THE QUERY
-        if hasparams & len(functionparams) != len(params):  # not all parameters are being passed to the function - so we need to use named parameters
-            sql = "SELECT * from " + schemaname + "." + servicename + "(" + ",".join([n + ":=%(" + n + ")s" for n in params]) + ");"  # run the query using named parameters
-#            return 'sql: ' + sql + ' params: ' + str(params) + ' query: ' + conn.cur.mogrify(sql, params)
-            conn.cur.execute(sql, params)
-        else:
-            conn.cur.callproc(schemaname + "." + servicename, params.values())  # run the query using positional parameters
-        t2 = datetime.datetime.now()
-        rows = conn.cur.fetchall()
+        if (isHadoop.lower() == 'true'): 
+            rows = runHadoopQuery(conn, params)
+            return rows
+        else:  # PostGIS query
+            if hasparams & len(functionparams) != len(params):  # not all parameters are being passed to the function - so we need to use named parameters
+                sql = "SELECT * from " + schemaname + "." + servicename + "(" + ",".join([n + ":=%(" + n + ")s" for n in params]) + ");"  # run the query using named parameters
+    #            return 'sql: ' + sql + ' params: ' + str(params) + ' query: ' + conn.cur.mogrify(sql, params)
+                conn.cur.execute(sql, params)
+            else:
+                conn.cur.callproc(schemaname + "." + servicename, params.values())  # run the query using positional parameters
+            rows = conn.cur.fetchall()
+
+        # PROCESS THE ROWS AND WRITE THEM BACK TO THE CLIENT
         conn.cur.close()
+        t2 = datetime.datetime.now()
         
         # METADATA SECTION OF RESPONSE
         allfields = [d.name for d in conn.cur.description]
@@ -306,6 +314,20 @@ def isAuthorised(servicename):
     else:
         return False
 
+def runHadoopQuery(conn, params):
+    conn.cur.execute("LISTEN job_complete;")                            # listen for the results to be posted back
+    quadkey = params['quadkey']
+    conn.cur.execute("INSERT INTO jobs(id,query_text,time_start) VALUES (DEFAULT,'132320330230021',now())")
+    while 1:
+        if select.select([conn.conn], [], [], 5) == ([], [], []):
+            assert 'nothing'
+        else:
+            conn.conn.poll()
+            while conn.conn.notifies:                                   # results posted back
+                conn.cur.execute("UNLISTEN job_complete;")
+                notify = conn.conn.notifies.pop()
+                return notify.payload
+
 class manager:
     def GET(self):
         try:
@@ -318,9 +340,5 @@ class manager:
         except (DopaServicesError, ProgrammingError):
             return "DOPA Services Error: " + str(sys.exc_info())
 
-class getQuadKeySpecies:
-    def GET(self):
-        return 'load of species from hbase' # need to implement getting data from Hadoop
-        
 if __name__ == "__main__":
      app = web.application(urls, globals()).run()
