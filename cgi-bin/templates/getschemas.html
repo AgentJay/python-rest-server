@@ -6,7 +6,7 @@ $def with (schemas, header, footer)
 	</head> 
 	<body>
 		$:header
-		<h2>Schemas</h2>
+		<div class="breadcrumb">Schemas</div>
 		$if schemas:
 			<table class="table" cellspacing="0"><tr><th>Schema</th><th>Description</th></tr>
 			$for schema in schemas:

@@ -6,7 +6,7 @@ $def with (schemaname, services, header, footer)
 	</head>
 	<body>
 		$:header
-		<h2><a href="../../services/">Schemas</a> | $schemaname[:1]$schemaname[1:2].upper()$schemaname[2:] Schema</h2>
+		<div class="breadcrumb"><a href="../../services/">Schemas&nbsp;&nbsp;</a> | &nbsp;&nbsp;$schemaname[:1]$schemaname[1:2].upper()$schemaname[2:]</div>
 		$if services:
 			<table class="table" cellspacing="0"><tr><th>Service</th><th>Description</th></tr>
 			$for service in services:

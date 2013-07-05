@@ -126,18 +126,19 @@ def callservice(schemaname, servicename, querystring):
         metadataName = params.setdefault('metadataname', 'metadata')
         rootName = params.setdefault('rootname', 'records')
         parseparams = params.setdefault('parseparams', 'true')
-        isHadoop = params.setdefault('ishadoop', 'false')
+        isHadoop = ('true' if (servicename[-2:] == '_h') else 'false')  # if the service is a call to a hadoop method then set a flag 
 
         # remove the standard optional parameters from the dictionary so we are left with just the parameters required for the function
-        del (params['format'], params['fields'], params['callback'], params['includemetadata'], params['parseparams'], params['metadataname'], params['rootname'], params['ishadoop'])
+        del (params['format'], params['fields'], params['callback'], params['includemetadata'], params['parseparams'], params['metadataname'], params['rootname'])
 
         # connect to the database to get the data
         conn = dbconnect("species_especies_schema")
 
-        # if it is a Hadoop query then we need to run if first before we actually use the values to get the data from postgis 
+        # if it is a Hadoop query then we need to run if first before we actually use the values to get the data from postgresql 
         if (isHadoop.lower() == 'true'): 
-            hadoopData = runHadoopQuery(conn, params)
-            servicename = "_hbase_get_species_list_quadkey"
+            hadoopData = runHadoopQuery(conn, servicename, params)
+            if hadoopData == '[]': hadoopData = '[-1]'
+            servicename = "_" + servicename   # now call the postgresql function
             params.clear()
             params['species_ids'] = str(hadoopData)[1:-1];
 
@@ -319,20 +320,23 @@ def isAuthorised(servicename):
     else:
         return False
 
-def runHadoopQuery(conn, params):
-    conn.cur.execute("INSERT INTO jobs(id, query_text) VALUES (DEFAULT, " + params['quadkey'] + ") RETURNING id")
-    job_id = conn.cur.fetchone()[0]  # this is the job_id value from the table
-    conn.cur.execute("LISTEN job_complete;")  # listen for the results to be posted back
-    conn.cur.execute("NOTIFY job_request,'" + str(job_id) + "," + params['quadkey'] + "'")
-    while 1:
-        if select.select([conn.conn], [], [], 5) == ([], [], []):
-            assert 'nothing'
-        else:
-            conn.conn.poll()
-            while conn.conn.notifies:  # results posted back
-                conn.cur.execute("UNLISTEN job_complete;")
-                resultsDict = ast.literal_eval(conn.conn.notifies.pop().payload)
-                return resultsDict['query_results']
+def runHadoopQuery(conn, functionname, params):
+    try:
+        conn.cur.execute("INSERT INTO hadoop_jobs(id, functionname, params) VALUES (DEFAULT,'" + functionname + "','" + params['quadkey'] + "') RETURNING id")
+        job_id = conn.cur.fetchone()[0]  # this is the job_id value from the table
+        conn.cur.execute("LISTEN hadoop_job_complete;")  # listen for the results to be posted back
+        conn.cur.execute("NOTIFY hadoop_job_request,'" + str(job_id) + "," + functionname + "," + params['quadkey'] + "'")
+        while 1:
+            if select.select([conn.conn], [], [], 5) == ([], [], []):
+                assert 'nothing'
+            else:
+                conn.conn.poll()
+                while conn.conn.notifies:  # results posted back
+                    conn.cur.execute("UNLISTEN hadoop_job_complete;")
+                    resultsDict = ast.literal_eval(conn.conn.notifies.pop().payload)
+                    return resultsDict['results']
+    except (DopaServicesError):
+        return "DOPA Services Error: "+ str(sys.exc_info())
 
 class manager:
     def GET(self):

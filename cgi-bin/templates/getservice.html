@@ -6,36 +6,45 @@ $def with (schemaname, servicename, servicedesc, inparams, outparams, header, fo
 	</head>
 	<body>
 		$:header
-		<h2><a href="../../services/">Schemas</a> | <a href="../$schemaname/">$schemaname[:1]$schemaname[1:2].upper()$schemaname[2:] Schema</a> | $servicename Service</h2>
-		<table class="table" cellspacing="0"><a><tr><th>Service</th><th colspan="4">Description</th></tr>
-		<tr><td>$servicename</td><td colspan="4" style="padding-bottom: 15px">$:servicedesc</td></tr>
+		<div class="breadcrumb"><a href="../../services/">Schemas&nbsp;&nbsp;</a> | &nbsp;&nbsp;<a href="../$schemaname/">$schemaname[:1]$schemaname[1:2].upper()$schemaname[2:] &nbsp;&nbsp;</a> | &nbsp;&nbsp;$servicename</div>
+
+		<div class="section">
+			<div class="sName">$servicename &nbsp;Service</div>
+			<div class="sectionHeader">Description:</div><div class="normal">$:servicedesc</div>
+		</div>
 		
 		<!--Input parameters-->
-		<tr><td></td><th colspan="4">Input Parameters</th></tr>
+		<div class="section"><div class="sectionHeader">Input parameters:</div>
+		<table class="table2" cellspacing="0">
 		$if inparams:
-			<tr><td></td><td class="smallth" style="min-width: 100px">Name</td><td class="smallth">Description</td><td class="smallth" style="min-width: 140px">Type</td><td class="smallth" style="min-width: 60px">Default value</td></tr>
-				
+			<tr><th>Name</th><th>Description</th><th>Type</th><th>Default value</th></tr>
+
 			$for inparam in inparams:
 				$if inparam['default']=='':
-					<tr><td></td><td>$inparam['name']</td><td>$:inparam['description']</td><td>$inparam['type']</td><td>$:inparam['default']</td></tr>
+					<tr><td>$inparam['name']</td><td>$:inparam['description']</td><td>$inparam['type']</td><td>$:inparam['default']</td></tr>
 				$else:
-					<tr><td></td><td><i>$inparam['name']</i></td><td>$:inparam['description'] (optional)</td><td>$inparam['type']</td><td>$:inparam['default']</td></tr>
+					<tr><td><i>$inparam['name']</i></td><td>$:inparam['description'] (optional)</td><td>$inparam['type']</td><td>$:inparam['default']</td></tr>
 		$else:
-			<tr><td></td><td colspan="4">No mandatory input parameters</td></tr>
-		<tr><td></td><td colspan="4" style="padding-bottom: 15px">The standard optional parameters are not shown (see the Help Documentation for more information)</td></tr>
-				
+			<tr><td colspan="4">No mandatory input parameters</td></tr>
+		</table>
+		<div class="normal">The standard optional parameters are not shown (see the <a href='../../help.html' target='_help'>Help</a> Documentation for more information)</div>
+		</div>
+			
 		<!--Output parameters-->
-		<tr><td></td><th colspan="4">Output Parameters</th></tr>
+		<div class="section"><div class="sectionHeader">Output Parameters:</div>
+		<table class="table2" cellspacing="0">
 		$if outparams:		
-			<tr><td></td><td class="smallth">Name</td><td class="smallth">Description</td><td class="smallth" colspan="2">Type</td></tr>
+			<tr><th>Name</th><th>Description</th><th>Type</th></tr>
 
 			$for outparam in outparams: 
-				<tr><td></td><td>$outparam['name']</td><td>$:outparam['description']</td><td colspan="2">$outparam['type']</td></tr>
+				<tr><td>$outparam['name']</td><td>$:outparam['description']</td><td>$outparam['type']</td></tr>
 		$else:
-			<tr><td></td><td colspan="4">No output parameters</td></tr>
+			<tr><td colspan="3">No output parameters</td></tr>
+		</table>
+		</div>
 			
 		<!--Example calls-->
-		<tr><td></td><th colspan="4">Example calls</th></tr>
+		<div class="section"><div class="sectionHeader">Example calls:</div>
 			
 		$def getqueryparams(params, queryparams):
 			$for param in params:
@@ -89,32 +98,32 @@ $def with (schemaname, servicename, servicedesc, inparams, outparams, header, fo
 			$ querystring = "?" + "&".join([param for param in queryparams])
 
 		<!--Mandatory parameters example calls-->
-		<tr><td></td><td colspan="4" class="smallth">REST call using mandatory parameters</td></tr>
+		<div>REST call using mandatory parameters</div>
 		$if mandatoryquerystring!='?':		
-			<tr><td></td><td colspan="4"><a href='$mandatoryquerystring' target='__examplecall' title="Example call" class="example">$mandatoryquerystring</a></td></tr>
+			<div class="endpoint"><a href='$mandatoryquerystring' target='__examplecall' title="Example call" class="example">$mandatoryquerystring</a></div>
 		$else:
-			<tr><td></td><td colspan="4">No mandatory input parameters</td></tr>
+			<div>No mandatory input parameters</div>
 
 		<!--Optional parameters example calls-->
-		<tr><td></td><td colspan="4" class="smallth">REST call using optional parameters</td></tr>
+		<div class="endPointExample">REST call using optional parameters</div>
 		$if len(mandatoryquerystring)!=len(querystring):
-			<tr><td></td><td colspan="4"><a href='$querystring' target='__examplecall' title="Example call" class="example">$querystring</a></td></tr>
+			<div class="endpoint"><a href='$querystring' target='__examplecall' title="Example call" class="example">$querystring</a></div>
 		$if querystring!='?': 
 			$ prefix = querystring + '&' 
 		$else:
 			$ prefix = querystring
-		<tr><td></td><td colspan="4"><a href='$(prefix)format=xml' target='__examplecall' title="Example call" class="example">$(prefix)format=xml</a></td></tr>
-		<tr><td></td><td colspan="4"><a href='$(prefix)format=array&includemetadata=false' target='__examplecall' title="Example call" class="example">$(prefix)format=array&includemetadata=false</a></td></tr>
+		<div class="endpoint"><a href='$(prefix)format=xml' target='__examplecall' title="Example call" class="example">$(prefix)format=xml</a></div>
+		<div class="endpoint"><a href='$(prefix)format=array&includemetadata=false' target='__examplecall' title="Example call" class="example">$(prefix)format=array&includemetadata=false</a></div>
 		$if (len(outparams)>0):
-			<tr><td></td><td colspan="4"><a href='$(prefix)format=json&fields=$outparams[0]['name']' target='__examplecall' title="Example call" class="example">$(prefix)format=json&fields=$outparams[0]['name']</a></td></tr>
+			<div class="endpoint"><a href='$(prefix)format=json&fields=$outparams[0]['name']' target='__examplecall' title="Example call" class="example">$(prefix)format=json&fields=$outparams[0]['name']</a></div>
 
 		<!--Excel endpoint-->
-		<tr><td></td><td colspan="4" class="smallth">Excel endpoint</td></tr>
+		<div class="endPointExample">Excel endpoint</div>
 		$if mandatoryquerystring!='?':		
-			<tr><td></td><td colspan="4"><a href='$(mandatoryquerystring)&format=xml' target='__examplecall' title="Example call" class="example">$(mandatoryquerystring)&format=xml</a></td></tr>
+			<div class="endpoint"><a href='$(mandatoryquerystring)&format=xml' target='__examplecall' title="Example call" class="example">$(mandatoryquerystring)&format=xml</a></div>
 		$else:
-			<tr><td></td><td colspan="4"><a href='$(mandatoryquerystring)format=xml' target='__examplecall' title="Example call" class="example">$(mandatoryquerystring)format=xml</a></td></tr>
-		</table>
+			<div class="endpoint"><a href='$(mandatoryquerystring)format=xml' target='__examplecall' title="Example call" class="example">$(mandatoryquerystring)format=xml</a></div>
+		</div>
 		
 		$:footer		
 	</body>
