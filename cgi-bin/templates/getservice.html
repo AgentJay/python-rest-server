@@ -98,7 +98,7 @@ $def with (schemaname, servicename, servicedesc, inparams, outparams, header, fo
 			$ querystring = "?" + "&".join([param for param in queryparams])
 
 		<!--Mandatory parameters example calls-->
-		<div>REST call using mandatory parameters</div>
+		<div class="endPointExample">REST call using mandatory parameters</div>
 		$if mandatoryquerystring!='?':		
 			<div class="endpoint"><a href='$mandatoryquerystring' target='__examplecall' title="Example call" class="example">$mandatoryquerystring</a></div>
 		$else:

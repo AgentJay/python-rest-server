@@ -8,9 +8,10 @@ $def with (schemas, header, footer)
 		$:header
 		<div class="breadcrumb">Schemas</div>
 		$if schemas:
-			<table class="table" cellspacing="0"><tr><th>Schema</th><th>Description</th></tr>
+			<table class="table" cellspacing="0"><tr><th>Schema</th><th>Description</th><th>More information</th></tr>
 			$for schema in schemas:
-				<tr><td><a href="$schema['name']/">$schema['name'][:1]$schema['name'][1:2].upper()$schema['name'][2:]</a></td><td>$schema['description']</td></tr>
+				$ schemaurl = "http://" + schema['name'] +  ".jrc.ec.europa.eu/"
+				<tr><td><a href="$schema['name']/">$schema['name'][:1]$schema['name'][1:2].upper()$schema['name'][2:]</a></td><td>$schema['description']</td><td><a href="$schemaurl" target="_new">$schemaurl</a></td></tr>
 			</table>
 		$else:
 		    <p>No content</p>

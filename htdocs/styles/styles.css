@@ -48,7 +48,7 @@ a {
 	font-size: 14px;
 	border: #ccc 1px solid;
 	text-align: left;
-	width: 60%;
+	width: 65%;
 }
 .table2 {
 	margin: 0px 20px 20px 0px;
@@ -70,6 +70,7 @@ tr {
 }
 td {
 	padding: 4px 5px 4px 5px;
+	border: 6px solid white;
 }
 
 .section {
@@ -89,7 +90,7 @@ td {
 	color: #666;
 }
 .endPointExample {
-	padding-top: 10px;
+	padding-top: 15px;
 }
 .endpoint {
 	padding: 2px;
@@ -99,6 +100,8 @@ td {
 }
 img {
 	padding: 10px;
+	outline: none;
+	border:0;
 }
 ul {
 	font-size: 14px;
@@ -141,18 +144,18 @@ ol {
 .terms {
 	padding: 10px 10px 10px 0px;
 }
-h1{
+h1 {
 	margin: 30px 20px 10px 0px;
 }
-h2{
+h2 {
 	margin: 25px 20px 10px 0px;
 }
-h3{
+h3 {
 	margin: 20px 20px 10px 0px;
 }
-h4{
+h4 {
 	margin: 15px 20px 5px 0px;
 }
-h5{
+h5 {
 	margin: 10px 20px 5px 0px;
 }
