@@ -1,5 +1,5 @@
 #!/usr/bin/env python 
-import web, json, sys, exceptions, re, datetime, urllib, select, psycopg2, ast, ee, uuid, math, cPickle
+import web, json, sys, exceptions, re, datetime, urllib, select, psycopg2, ast, ee, uuid, math, cPickle, pdfkit, cgi
 from amazon_ses import AmazonSES, EmailMessage, AmazonError
 from ee import EEException
 from twilio.rest import TwilioRestClient
@@ -14,11 +14,13 @@ from pyproj import transform
 urls = (
   "/help", "help",
   "/terms", "terms",
+  "/manager", "manager",
+  "/gee/getDatesForBB", "getDatesForBB",
+  "/gee/getDatesForPoint", "getDatesForPoint",
   "/gee/WMSServer", "geeWMS",
   "/gee/(.+)", "gee",
   "/(.+)/(.+)", "getservice",
   "/(.+)/", "getservices",
-  "/manager", "manager",
   "/", "getschemas"
   )
 
@@ -215,6 +217,7 @@ def callservice(schemaname, servicename, querystring):
             else:
                 recordsdict = [[row[col] for col in range(fieldcount) if (col in colsRequired)] for row in rows]
             json.encoder.FLOAT_REPR = lambda f: ("%.4f" % f)  # this specifies how many decimal places are returned in the json with float values - currently set to 4
+#             return rows,recordsdict
             if (includemetadata.lower() == 'true'):
                 responsejson = json.dumps(dict([(metadataName, metadatadict), (rootName, recordsdict)]), indent=1, cls=CustomJSONEncoder)
             else: 
@@ -261,12 +264,28 @@ def callservice(schemaname, servicename, querystring):
             amazonSes = AmazonSES(_amazon_ses.AccessKeyID, _amazon_ses.SecretAccessKey)  # use the amazon simple email service api account
             message = EmailMessage()
             message.subject = 'DOPA Information Request'
-            data = [[row[col] for col in range(fieldcount) if (col in colsRequired)] for row in rows]
-            colnames = "<tr>" + "".join(["<th>" + f["name"] + "</th>" for f in metadatadict["fields"]]) + "</tr>"
-            message.bodyHtml = "Results for the query : " + querystring + "<table>" + colnames + "".join(["<tr>" + p + "</tr>" for p in ["".join(h) for h in [['<td>' + str(col) + '</td>' for col in row] for row in data]]]) + "</table>"
+            message.bodyHtml = getResultsAsHTML(rows, fieldcount, colsRequired, metadatadict) 
             result = amazonSes.sendEmail('a.cottam@gmail.com', 'a.cottam@gmail.com', message)  # to me
             return result 
                     
+        elif format == 'html':
+            htmlData = getResultsAsHTML(rows, fieldcount, colsRequired, metadatadict) 
+            web.header("Content-Type", "text/html") 
+            return "<html><head></head><body>" + htmlData + "</body></html>"
+        
+        elif format == 'csv':
+#             web.header("Content-Type", "text/csv") # downloads a file 
+            data = [[row[col] for col in range(fieldcount) if (col in colsRequired)] for row in rows]
+            colnames = ",".join([f["name"] for f in metadatadict["fields"]]) + "\n"
+            output = colnames + "\n".join([p for p in [",".join(h) for h in [[str(col) for col in row] for row in data]]]) 
+            return output
+
+        elif format == 'pdf':    
+            config = pdfkit.configuration(wkhtmltopdf='/usr/local/bin/wkhtmltopdf')
+            web.header("Content-Type", "application/pdf")
+            htmlData = getResultsAsHTML(rows, fieldcount, colsRequired, metadatadict)
+            return pdfkit.from_string(htmlData.decode('utf8'), False, configuration=config, options={'quiet': '', 'encoding': "UTF-8"})
+        
         else:
             raise DopaServicesError('Invalid response format: ' + format)
 
@@ -286,6 +305,15 @@ def callservice(schemaname, servicename, querystring):
 
         else:
             return "DOPA Services Error: " + msg
+            
+def getResultsAsHTML(rows, fieldcount, colsRequired, metadatadict, landscape=False):  # set landscape to True to set orientation to landscape
+    data = [[row[col] for col in range(fieldcount) if (col in colsRequired)] for row in rows]
+    colnames = "<tr>" + "".join(["<th>" + f["name"] + "</th>" for f in metadatadict["fields"]]) + "</tr>"
+    html = "<table>" + colnames + "".join(["<tr>" + p + "</tr>" for p in ["".join(h) for h in [['<td>' + str(col) + '</td>' for col in row] for row in data]]]) + "</table>" 
+    if landscape:
+        return "<head><meta name='pdfkit-orientation' content='Landscape'/></head>" + html + "</table>"
+    else:
+        return html
             
 def gettypefromtypecode(typecode):  # returns a string representation of the psycopg2.cursor.type_code value which is shown in the response - the values come from the pg_type table in PostGIS and these are not complete yet - in the output parameter data type section
     if (typecode in [16, 1000, 1560, 1561]): return "boolean"
@@ -374,7 +402,7 @@ class terms:
 class gee:
     def GET(self, id):
         try:
-            gee_authenticate()
+            gee_authenticate_stored()
             landsat_scene = ee.Image(id)
             landsatlook_thumbnail = landsat_scene.getThumbUrl({'bands': 'B6,B5,B4', 'size': '600'})
 #             web.header("Content-Type", "images/png")        #returns as a file
@@ -382,29 +410,68 @@ class gee:
         except (DopaServicesError, ProgrammingError, EEException):
             return "DOPA Services Error: " + str(sys.exc_info())        
 
+class getDatesForBB:
+    def GET(self):
+        # request will be in the format getDatesForBB?BBOX=-24867967,734592,12389274,8561744&CRS=EPSG:102100
+        ll_x, ll_y, ur_x, ur_y = web.input()['BBOX'].split(",")
+        bbox_latlong = getBoundingBoxLL(ll_x, ll_y, ur_x, ur_y, web.input()['CRS'])
+        gee_authenticate_stored()
+        clip_polygon = ee.Feature.Polygon([[[115.23007047049605, 6.832121400646544], [114.86071749550347, 5.091937003312537], [116.53236986665138, 4.730846019175226], [116.90729867328733, 6.473882787770036], [115.23007047049605, 6.832121400646544]]])
+        return clip_polygon["coordinates"], ee.Feature.Polygon([bbox_latlong])["coordinates"]
+        return ee.ImageCollection("LANDSAT/LC8_L1T").filterBounds(clip_polygon).aggregate_array("DATE_ACQUIRED").getInfo()
+
+class getDatesForPoint:
+    def GET(self):
+        # request will be in the format getDatesForPoint?POINT=-24867967,734592&CRS=EPSG:102100
+        x, y = web.input()['POINT'].split(",")
+        lng, lat = getPointLL(x, y, web.input()['CRS'])
+        # points dont work with GEE, so we have to create a small polygon
+        small_query_polygon = [[[lng - 0.1, lat + 0.1], [lng - 0.1, lat - 0.1], [lng + 0.1, lat - 0.1], [lng + 0.1, lat + 0.1], [lng - 0.1, lat + 0.1]]]
+#         return web.input()['callback'] + "({'wibble':1})"
+        gee_authenticate_stored()  # authenticate to GEE 
+        stringDates = ee.ImageCollection("LANDSAT/LC8_L1T").filterBounds(ee.Feature.Polygon(small_query_polygon)).aggregate_array("DATE_ACQUIRED").getInfo()  # get the dates as strings
+        dates = [dateToDateTime(s) for s in stringDates]
+        dates = [s.isoformat() for s in sorted(set(dates))]  # convert them to properly formatted strings 
+        web.header("Content-Type", "text/javascript")
+        return web.input()['callback'] + "({'dates':['" + "','".join([d for d in dates]) + "']})"  # return as a jsonp
+
 class geeWMS:
     def GET(self):
         try:
-            gee_authenticate_stored() # authenticate using stored credentials and API definitions
+            gee_authenticate_stored()  # authenticate using stored credentials and API definitions
 #             gee_authenticate()
 #             return self.getTestImage()
             self.parseWMSParams(web.input()) 
-            self.getBoundingBox()
-            collection = ee.ImageCollection(self.dataset).filterBounds(ee.Feature.Polygon([self.bounding_box])).filterDate(datetime.datetime(2013, 6, 18), datetime.datetime(2013, 6, 20))
-            if self.processing == "CLO":
-                collection_image = self.cloudCorrection(collection)
+            if self.version == "1.3.0":  # get the ll and ur x/y coordinates
+                ll_x, ll_y, ur_x, ur_y = self.bbox.split(",")
             else:
-                collection_image = collection.median()
-            collection_image = ee.Image.cat([collection_image.expression("b('B4')+770"), collection_image.select('B3'), collection_image.expression("b('B2')-1230")]);
-            if self.processing == "ILC":
-                outputimage = self.illuminationCorrection(collection_image)
+                ll_x, ll_y, ur_x, ur_y = self.bbox.split(",")  # same for the moment            
+            self.bounding_box = getBoundingBoxLL(ll_x, ll_y, ur_x, ur_y, self.crs)  # get the bounding box as lat/long suitable for sending to GEE API
+            d, m, y = [int(s) for s in self.date.split("-")]
+            collection = ee.ImageCollection(self.dataset).filterBounds(ee.Feature.Polygon([self.bounding_box])).filterDate(datetime.datetime(y, m, d - 1), datetime.datetime(y, m, d + 1))
+            
+            # cloud correction
+            if self.remove_cloud:
+                image = self.cloudCorrection(collection)
             else:
-                outputimage = collection_image
+                image = collection.median()
+            
+            # illumination correction
+            if self.remove_illumination:
+                image = self.illuminationCorrection(image)
+                
+            # colour and contrast adjustment
+            if (self.bands == "B4,B3,B2") or (self.bands == "B2,B3,B4"): 
+                image = ee.Image.cat([image.expression("b('B4')+770"), image.select('B3'), image.expression("b('B2')-1230")]);
             min = 7000
             max = 10000
-            collection_image_thumbnail = outputimage.getThumbUrl({'bands': self.bands, 'size': self.width, 'min': min, 'max': max, 'region': self.bounding_box})
+            
+            # create the thumbnail
+            collection_image_thumbnail = image.getThumbUrl({'bands': self.bands, 'size': self.width, 'min': min, 'max': max, 'region': self.bounding_box})
+            
 #             web.header("Content-Type", "images/png")                #returns as a file
             return urllib.urlopen(collection_image_thumbnail)  # streams the image back to the client
+        
         except (DopaServicesError, ProgrammingError, EEException):
             return "DOPA Services Error: " + str(sys.exc_info())        
         
@@ -415,9 +482,15 @@ class geeWMS:
                
     def parseWMSParams(self, parameters):
         # example parameters {'STYLES': u'', 'LAYERS': u'1', 'SERVICE': u'WMS', 'CRS': u'EPSG:102100', 'FORMAT': u'image/png', 'REQUEST': u'GetMap', 'HEIGHT': u'400', 'WIDTH': u'1904', 'VERSION': u'1.3.0', 'BBOX': u'-24867967,734592,12389274,8561744', 'TRANSPARENT': u'TRUE'}>
+        # get the gee params
         self.style = parameters['STYLES']
-        self.dataset, self.bands, self.processing = parameters['LAYERS'].split("!")
-        self.bands = "B" + self.bands[0] + ",B" + self.bands[1] + ",B" + self.bands[2] 
+        gee_params = parameters['LAYERS'].split("!")
+        self.dataset = gee_params[0]
+        self.date = gee_params[1]
+        self.remove_cloud = (gee_params[2] == "1")
+        self.remove_illumination = (gee_params[3] == "1")
+        self.bands = gee_params[4]
+        
         self.service = parameters['SERVICE']
         self.crs = parameters['CRS']
         self.format = parameters['FORMAT']
@@ -427,21 +500,6 @@ class geeWMS:
         self.version = parameters['VERSION']
         self.bbox = parameters['BBOX']
         self.transparent = parameters['TRANSPARENT']
-
-    def getBoundingBox(self):
-            if self.version == "1.3.0":
-                ll_x, ll_y, ur_x, ur_y = self.bbox.split(",")
-            else:
-                ll_x, ll_y, ur_x, ur_y = self.bbox.split(",")  # same for the moment
-            if self.crs.upper() == "EPSG:102100":
-                p1 = Proj(init='epsg:3857')
-            else:
-                p1 = self.crs
-            p2 = Proj(init='epsg:4326')
-            ll_long, ll_lat = transform(p1, p2, ll_x, ll_y)  # transform the data to lat/long so that we can use it in Google Earth Engine
-            ur_long, ur_lat = transform(p1, p2, ur_x, ur_y)
-            #             return "ll_x: " + str(ll_x) + " ll_y: " +  str(ll_y) + " ur_x: " + str(ur_x) + " ur_y: " + str(ur_y) + "\nll_long: " + str(ll_long) + " ll_lat: " + str(ll_lat) + " ur_long: " + str(ur_long) + " ur_lat: " + str(ur_lat) + "\nregion: " + str(region)
-            self.bounding_box = [[ll_long, ur_lat], [ll_long, ll_lat], [ur_long, ll_lat], [ur_long, ur_lat]]  # get the area of interest
         
     def illuminationCorrection(self, image):
         # accepts either a single scene which will have the sun elevation and azimuth already populated, or a collection image which will need to have the sun elevation and azimuth manually populated and accessed via the properties
@@ -473,21 +531,25 @@ class geeWMS:
         msb_val = int(math.pow(2, 15))
         for feature in collection.getInfo()['features']:
             image = ee.Image(feature['id'])
-            cloud_layer = image.expression("(2*(b('BQA')&" + str(msb_val) + ")/" + str(msb_val) + ")+((b('BQA')&" + str(lsb_val) + ")/" + str(lsb_val) + ")")
-            cloud_mask = cloud_layer.expression("(b('constant')==1)")
-            cloudless_images.append(image.multiply(cloud_mask))
-        cloudless_collection = ee.ImageCollection(cloudless_images).median()
-        cloudless_collection_int16 = cloudless_collection.toUint16()
-        return cloudless_collection_int16.focal_median()
+            cloud = image.expression("(2*(b('BQA')&" + str(msb_val) + ")/" + str(msb_val) + ")+((b('BQA')&" + str(lsb_val) + ")/" + str(lsb_val) + ")")
+            cloud_mask = cloud.expression("(b('constant')==1)")
+            masked = image.mask(cloud_mask)
+            output = masked.toUint16().focal_median()
+            cloudless_images.append(output)
+        return ee.ImageCollection(cloudless_images).median()
+    
+def dateToDateTime(_date):  # converts a Google date into a Python datetime, e.g. 2013-06-14 to datetime.datetime(2013, 5, 2, 0, 0))
+    d = _date.split("-")
+    return datetime.datetime(int(d[0]), int(d[1]), int(d[2]))
     
 def createGoogleAPIJson():
     gee_authenticate()
     f = open(r'google earth engine/_api.pickle', 'wb')
-    cPickle.dump(ee.ApiFunction,f)
+    cPickle.dump(ee.ApiFunction._api, f)
     f.close()
 
 def gee_authenticate():
-    _google_earth_engine = google_earth_engine() # authenticate directly with GEE API
+    _google_earth_engine = google_earth_engine()  # authenticate directly with GEE API
     ee.Initialize(ee.ServiceAccountCredentials(_google_earth_engine.MY_SERVICE_ACCOUNT, _google_earth_engine.MY_PRIVATE_KEY_FILE)) 
 
 def gee_authenticate_stored():
@@ -496,7 +558,7 @@ def gee_authenticate_stored():
     ee.data.initialize(cPickle.load(f_credentials))
     f_credentials.close()
     
-    #initialise the API
+    # initialise the API
     f_api = open(r'google earth engine/_api.pickle', 'rb')  # pickle of the gee api functions in json format
     ee.ApiFunction._api = cPickle.load(f_api)
     f_api.close()
@@ -511,5 +573,24 @@ def gee_authenticate_stored():
     ee._InitializeGeneratedClasses()
     ee._InitializeUnboundMethods()
 
+def getBoundingBoxLL(ll_x, ll_y, ur_x, ur_y, crs):  # gets a lat/long bounding box suitable for sending to the Google Earth Engine API
+        ll_long, ll_lat = getPointLL(ll_x, ll_y, crs)  # transform the data to lat/long so that we can use it in Google Earth Engine
+        ur_long, ur_lat = getPointLL(ur_x, ur_y, crs)
+        #             return "ll_x: " + str(ll_x) + " ll_y: " +  str(ll_y) + " ur_x: " + str(ur_x) + " ur_y: " + str(ur_y) + "\nll_long: " + str(ll_long) + " ll_lat: " + str(ll_lat) + " ur_long: " + str(ur_long) + " ur_lat: " + str(ur_lat) + "\nregion: " + str(region)
+        return [[ll_long, ur_lat], [ll_long, ll_lat], [ur_long, ll_lat], [ur_long, ur_lat]]  # get the area of interest
+
+def getPointLL(point_x, point_y, crs):
+        p1, p2 = getProjections(crs)
+        ll_long, ll_lat = transform(p1, p2, point_x, point_y)  # transform the data to lat/long so that we can use it in Google Earth Engine
+        return ll_long, ll_lat
+
+def getProjections(crs):
+        if crs.upper() == "EPSG:102100":
+            p1 = Proj(init='epsg:3857')
+        else:
+            p1 = Proj(init=crs)
+        p2 = Proj(init='epsg:4326')
+        return p1, p2    
+    
 if __name__ == "__main__":
      app = web.application(urls, globals()).run()
