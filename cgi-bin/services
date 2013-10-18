@@ -277,7 +277,7 @@ def callservice(schemaname, servicename, querystring):
 #             web.header("Content-Type", "text/csv") # downloads a file 
             data = [[row[col] for col in range(fieldcount) if (col in colsRequired)] for row in rows]
             colnames = ",".join([f["name"] for f in metadatadict["fields"]]) + "\n"
-            output = colnames + "\n".join([p for p in [",".join(h) for h in [[str(col) for col in row] for row in data]]]) 
+            output = colnames + "\n".join([p for p in [",".join(h) for h in [[getStringValue(col) for col in row] for row in data]]]) 
             return output
 
         elif format == 'pdf':    
@@ -306,10 +306,16 @@ def callservice(schemaname, servicename, querystring):
         else:
             return "DOPA Services Error: " + msg
             
+def getStringValue(value):
+    if value is not None:
+        return str(value)
+    else:
+        return ''
+
 def getResultsAsHTML(rows, fieldcount, colsRequired, metadatadict, landscape=False):  # set landscape to True to set orientation to landscape
     data = [[row[col] for col in range(fieldcount) if (col in colsRequired)] for row in rows]
     colnames = "<tr>" + "".join(["<th>" + f["name"] + "</th>" for f in metadatadict["fields"]]) + "</tr>"
-    html = "<table>" + colnames + "".join(["<tr>" + p + "</tr>" for p in ["".join(h) for h in [['<td>' + str(col) + '</td>' for col in row] for row in data]]]) + "</table>" 
+    html = "<table>" + colnames + "".join(["<tr>" + p + "</tr>" for p in ["".join(h) for h in [['<td>' + getStringValue(col) + '</td>' for col in row] for row in data]]]) + "</table>" 
     if landscape:
         return "<head><meta name='pdfkit-orientation' content='Landscape'/></head>" + html + "</table>"
     else:
