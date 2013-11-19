@@ -1,5 +1,5 @@
 #!/usr/bin/env python 
-import web, json, sys, exceptions, re, datetime, urllib, select, psycopg2, ast, ee, uuid, math, cPickle, pdfkit, cgi, logging, pycas
+import web, json, sys, exceptions, re, datetime, urllib, select, psycopg2, ast, ee, uuid, math, cPickle, pdfkit, logging, pycas
 from amazon_ses import AmazonSES, EmailMessage, AmazonError
 from ee import EEException
 from twilio.rest import TwilioRestClient
@@ -13,6 +13,7 @@ from pyproj import transform
 
 # constants
 CAS_SERVER = "https://intragate.ec.europa.eu"
+WEBPY_COOKIE_NAME = "webpy_session_id"
 
 urls = (
   "/help", "help",
@@ -22,10 +23,16 @@ urls = (
   "/gee/getDatesForPoint", "getDatesForPoint",
   "/gee/WMSServer", "geeWMS",
   "/gee/(.+)", "gee",
+  "/endSession", "endSession",
+  "/ecasLogin", "ecasLogin",
+  "/ecasLogout", "ecasLogout",
   "/(.+)/(.+)", "getservice",
   "/(.+)/", "getservices",
   "/", "getschemas"
   )
+
+app = web.application(urls, locals()) 
+session = web.session.Session(app, web.session.DiskStore('../../htdocs/mstmp/restSessions'))  
 
 class DopaServicesError(Exception):
     """Exception Class that allows the DOPA Services REST Server to raise custom exceptions"""
@@ -124,7 +131,7 @@ class getservice:
                 return "DOPA Services Error: " + str(sys.exc_info())
 
 def callservice(schemaname, servicename, querystring):
-    try:
+    try:  
         t1 = datetime.datetime.now()
         # log the request
         logging.basicConfig(filename='../../htdocs/mstmp/REST_Services_Log.log', level=logging.DEBUG, format='%(asctime)s %(levelname)s %(message)s',)
@@ -145,17 +152,16 @@ def callservice(schemaname, servicename, querystring):
         # remove the standard optional parameters from the dictionary so we are left with just the parameters required for the function
         del (params['format'], params['fields'], params['callback'], params['includemetadata'], params['parseparams'], params['metadataname'], params['rootname'])
 
-        # CHECK THE SERVICE NAME IS VALID
+        # check if the service name is valid
         if not (isValidServiceName(servicename)):
             raise DopaServicesError('Invalid servicename')
         
-        # AUTHORISE ACCESS IF THE SERVICE CALL REQUIRES IT
-        if requiresAuthentication(servicename):
-            vals = ecasAuthenticate(servicename, params)
-            if not(vals):
-                raise DopaServicesError('Unauthorised access')
-            else:
-                return vals    
+        # authorise with ecas if needed
+#         if requiresAuthentication(servicename):
+#             if isAuthenticated() == False:
+#                 web.ctx.status = '401 Unauthorized'
+#                 web.header("Content-Type", "text/html")
+#                 return "<html><head></html><body><h1>Authentication required</h1></body></html>"                   
 
         # connect to the database to get the data
         conn = dbconnect("species_especies_schema")
@@ -387,17 +393,15 @@ def requiresAuthentication(servicename):
     else:
         return False
 
-def ecasAuthenticate(servicename, params):
-    if "ticket" not in params:
-        if "parseparams" not in params:
-            service_url = urllib.quote(web.ctx.home + web.ctx.path + web.ctx.query + "&parseparams=false")
-        else: 
-            service_url = urllib.quote(web.ctx.home + web.ctx.path + web.ctx.query)
+def isAuthenticated():
+    cookie = web.cookies().get(WEBPY_COOKIE_NAME)
+    if cookie == None:
+        return False
     else:
-        service_url = urllib.quote(web.ctx.home + web.ctx.path + web.ctx.query)
-        service_url = service_url[0:service_url.index('%26ticket')]
-    status, id, cookie = pycas.login(CAS_SERVER, service_url)
-    return (status, id, cookie)
+        if session.loggedin == False:
+            return False
+        username = session.username
+        return True
 
 def runHadoopQuery(conn, functionname, params): 
     try:
@@ -416,6 +420,33 @@ def runHadoopQuery(conn, functionname, params):
                     return resultsDict['results']
     except (DopaServicesError, OperationalError):
         return "DOPA Services Error: " + str(sys.exc_info())
+
+class ecasLogin: #logs into ECAS and sets the session variables
+    def GET(self):
+        status, id, cookie = pycas.login(CAS_SERVER, web.ctx.home + web.ctx.path)  
+        if status == 0:
+            session.loggedin = True
+            session.username = cookie[cookie.rfind(':') + 1:cookie.find(';')]
+            session.ip = web.ctx.ip
+            return "ECAS authentication successful (webpy session_id: " + session.session_id + ", username: " + session.username + ")" 
+        if status == 1:
+            return "ECAS cookie exceeded its lifetime"
+        if status == 2:
+            return "ECAS cookie is invalid (probably corrupted)"
+        if status == 3:
+            return "ECAS server ticket invalid"
+        if status == 4:
+            return "ECAS server returned without ticket while in gateway mode"
+
+class endSession: #ends the session and logs out
+    def GET(self):
+        session.loggedin = False
+        session.kill()
+        return "Webpy session " + session.session_id + " ended"
+    
+class ecasLogout(): #redirects to the ecas logout page to end an ECAS session
+    def GET(self):
+        web.redirect(CAS_SERVER + "/cas/logout") 
 
 class manager:
     def GET(self):
@@ -468,7 +499,7 @@ class getDatesForPoint:
         # points dont work with GEE, so we have to create a small polygon
         small_query_polygon = [[[lng - 0.1, lat + 0.1], [lng - 0.1, lat - 0.1], [lng + 0.1, lat - 0.1], [lng + 0.1, lat + 0.1], [lng - 0.1, lat + 0.1]]]
 #         return web.input()['callback'] + "({'wibble':1})"
-        gee_authenticate_stored()  # authenticate to GEE 
+        gee_authenticate_stored()  # isAuthenticated to GEE 
         stringDates = ee.ImageCollection("LANDSAT/LC8_L1T").filterBounds(ee.Feature.Polygon(small_query_polygon)).aggregate_array("DATE_ACQUIRED").getInfo()  # get the dates as strings
         dates = [dateToDateTime(s) for s in stringDates]
         dates = [s.isoformat() for s in sorted(set(dates))]  # convert them to properly formatted strings 
@@ -478,7 +509,7 @@ class getDatesForPoint:
 class geeWMS:
     def GET(self):
         try:
-            gee_authenticate_stored()  # authenticate using stored credentials and API definitions
+            gee_authenticate_stored()  # isAuthenticated using stored credentials and API definitions
 #             gee_authenticate()
 #             return self.getTestImage()
             self.parseWMSParams(web.input()) 
@@ -589,7 +620,7 @@ def createGoogleAPIJson():
     f.close()
 
 def gee_authenticate():
-    _google_earth_engine = google_earth_engine()  # authenticate directly with GEE API
+    _google_earth_engine = google_earth_engine()  # isAuthenticated directly with GEE API
     ee.Initialize(ee.ServiceAccountCredentials(_google_earth_engine.MY_SERVICE_ACCOUNT, _google_earth_engine.MY_PRIVATE_KEY_FILE)) 
 
 def gee_authenticate_stored():
@@ -633,4 +664,4 @@ def getProjections(crs):
         return p1, p2    
     
 if __name__ == "__main__":
-     app = web.application(urls, globals()).run()
+    app.run()
