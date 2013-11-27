@@ -22,6 +22,7 @@ urls = (
   "/gee/getDatesForBB", "getDatesForBB",
   "/gee/getDatesForPoint", "getDatesForPoint",
   "/gee/WMSServer", "geeWMS",
+  "/gee/WMS", "gee_WMS",
   "/gee/(.+)", "gee",
   "/endSession", "endSession",
   "/ecasLogin", "ecasLogin",
@@ -138,7 +139,7 @@ def callservice(schemaname, servicename, querystring):
 #         logging.info("REST REQUEST: " + web.ctx.home + web.ctx.path + web.ctx.query)
         # PARSE THE STANDARD OPTIONAL INPUT PARAMETERS
         # get the input parameters
-        params = OrderedDict([(q.split("=")[0], urllib.unquote(q.split("=")[1])) for q in querystring.split("&")])  # the unquoting is to handle encoded parameters (like from extJS - 1,2,3 as a parameter becomes 1%2C2%2C3
+        params = getQueryStringParams(querystring)  # the unquoting is to handle encoded parameters (like from extJS - 1,2,3 as a parameter becomes 1%2C2%2C3
         # get the standard optional parameters from the url 
         format = params.setdefault('format', 'json') 
         fields = params.setdefault('fields', '').split(",")  # fields will be passed as an array, e.g. iucn_species_id,wdpa_id
@@ -328,6 +329,9 @@ def callservice(schemaname, servicename, querystring):
         else:
             return "DOPA Services Error: " + msg
             
+def getQueryStringParams(querystring):
+    return OrderedDict([(q.split("=")[0], urllib.unquote(q.split("=")[1])) for q in querystring.split("&")])
+            
 def getStringValue(value):
     if value is not None:
         return str(value)
@@ -382,7 +386,7 @@ def isNumeric(val):
         return True
 
 def isValidServiceName(servicename):
-    if (servicename[:3] in ['get', 'set']) | ((servicename[:1] == '_') & (web.ctx.host == 'dopa-services.jrc.it')):
+    if (servicename[:3] in ['get', 'set']) | (servicename[:6] =='insert') |((servicename[:1] == '_') & (web.ctx.host == 'dopa-services.jrc.it')):
         return True
     else:
         return False
@@ -421,7 +425,7 @@ def runHadoopQuery(conn, functionname, params):
     except (DopaServicesError, OperationalError):
         return "DOPA Services Error: " + str(sys.exc_info())
 
-class ecasLogin: #logs into ECAS and sets the session variables
+class ecasLogin:  # logs into ECAS and sets the session variables
     def GET(self):
         status, id, cookie = pycas.login(CAS_SERVER, web.ctx.home + web.ctx.path)  
         if status == 0:
@@ -438,13 +442,13 @@ class ecasLogin: #logs into ECAS and sets the session variables
         if status == 4:
             return "ECAS server returned without ticket while in gateway mode"
 
-class endSession: #ends the session and logs out
+class endSession:  # ends the session and logs out
     def GET(self):
         session.loggedin = False
         session.kill()
         return "Webpy session " + session.session_id + " ended"
     
-class ecasLogout(): #redirects to the ecas logout page to end an ECAS session
+class ecasLogout():  # redirects to the ecas logout page to end an ECAS session
     def GET(self):
         web.redirect(CAS_SERVER + "/cas/logout") 
 
@@ -506,18 +510,18 @@ class getDatesForPoint:
         web.header("Content-Type", "text/javascript")
         return web.input()['callback'] + "({'dates':['" + "','".join([d for d in dates]) + "']})"  # return as a jsonp
 
-class geeWMS:
+class gee_WMS:  # class to return a url to a GEE generated image rather than the image itself
     def GET(self):
         try:
             gee_authenticate_stored()  # isAuthenticated using stored credentials and API definitions
-#             gee_authenticate()
-#             return self.getTestImage()
+            params = getQueryStringParams(web.ctx.query[1:])  # get the querystring parameters to get the callback function name
+            callback = params.setdefault('callback', None)
             self.parseWMSParams(web.input()) 
-            if self.version == "1.3.0":  # get the ll and ur x/y coordinates
-                ll_x, ll_y, ur_x, ur_y = self.bbox.split(",")
+            if self.wmsParams.version == "1.3.0":  # get the ll and ur x/y coordinates
+                ll_x, ll_y, ur_x, ur_y = self.wmsParams.bbox.split(",")
             else:
-                ll_x, ll_y, ur_x, ur_y = self.bbox.split(",")  # same for the moment            
-            self.bounding_box = getBoundingBoxLL(ll_x, ll_y, ur_x, ur_y, self.crs)  # get the bounding box as lat/long suitable for sending to GEE API
+                ll_x, ll_y, ur_x, ur_y = self.wmsParams.bbox.split(",")  # same for the moment            
+            self.bounding_box = getBoundingBoxLL(ll_x, ll_y, ur_x, ur_y, self.wmsParams.crs)  # get the bounding box as lat/long suitable for sending to GEE API
             d, m, y = [int(s) for s in self.date.split("-")]
             collection = ee.ImageCollection(self.dataset).filterBounds(ee.Feature.Polygon([self.bounding_box])).filterDate(datetime.datetime(y, m, d - 1), datetime.datetime(y, m, d + 1))
             
@@ -538,7 +542,60 @@ class geeWMS:
             max = 10000
             
             # create the thumbnail
-            collection_image_thumbnail = image.getThumbUrl({'bands': self.bands, 'size': self.width, 'min': min, 'max': max, 'region': self.bounding_box})
+            collection_image_thumbnail = image.getThumbUrl({'bands': self.bands, 'size': self.wmsParams.width + 'x' + self.wmsParams.height , 'min': min, 'max': max, 'region': self.bounding_box})
+            responsejson = json.dumps({"url":collection_image_thumbnail}, indent=1, cls=CustomJSONEncoder)
+            if callback:
+                web.header("Content-Type", "application/javascript") 
+                return callback + '(' + responsejson + ');'                 
+            else:
+                web.header("Content-Type", "application/json") 
+                return responsejson
+        
+        except (DopaServicesError, ProgrammingError, EEException):
+            return "DOPA Services Error: " + str(sys.exc_info())        
+
+    def parseWMSParams(self, parameters):
+        self.wmsParams = wmsParams(parameters)
+        gee_params = self.wmsParams.layers.split("!")
+        self.dataset = gee_params[0]
+        self.date = gee_params[1]
+        self.remove_cloud = (gee_params[2] == "1")
+        self.remove_illumination = (gee_params[3] == "1")
+        self.bands = gee_params[4]
+
+class geeWMS:
+    def GET(self):
+        try:
+            gee_authenticate_stored()  # isAuthenticated using stored credentials and API definitions
+#             gee_authenticate()
+#             return self.getTestImage()
+            self.parseWMSParams(web.input()) 
+            if self.wmsParams.version == "1.3.0":  # get the ll and ur x/y coordinates
+                ll_x, ll_y, ur_x, ur_y = self.wmsParams.bbox.split(",")
+            else:
+                ll_x, ll_y, ur_x, ur_y = self.wmsParams.bbox.split(",")  # same for the moment            
+            self.bounding_box = getBoundingBoxLL(ll_x, ll_y, ur_x, ur_y, self.wmsParams.crs)  # get the bounding box as lat/long suitable for sending to GEE API
+            d, m, y = [int(s) for s in self.date.split("-")]
+            collection = ee.ImageCollection(self.dataset).filterBounds(ee.Feature.Polygon([self.bounding_box])).filterDate(datetime.datetime(y, m, d - 1), datetime.datetime(y, m, d + 1))
+            
+            # cloud correction
+            if self.remove_cloud:
+                image = self.cloudCorrection(collection)
+            else:
+                image = collection.median()
+            
+            # illumination correction
+            if self.remove_illumination:
+                image = self.illuminationCorrection(image)
+                
+            # colour and contrast adjustment
+            if (self.bands == "B4,B3,B2") or (self.bands == "B2,B3,B4"): 
+                image = ee.Image.cat([image.expression("b('B4')+770"), image.select('B3'), image.expression("b('B2')-1230")]);
+            min = 7000
+            max = 10000
+            
+            # create the thumbnail
+            collection_image_thumbnail = image.getThumbUrl({'bands': self.bands, 'size': self.wmsParams.width + 'x' + self.wmsParams.height, 'min': min, 'max': max, 'region': self.bounding_box})
             
 #             web.header("Content-Type", "images/png")                #returns as a file
             return urllib.urlopen(collection_image_thumbnail)  # streams the image back to the client
@@ -554,23 +611,13 @@ class geeWMS:
     def parseWMSParams(self, parameters):
         # example parameters {'STYLES': u'', 'LAYERS': u'1', 'SERVICE': u'WMS', 'CRS': u'EPSG:102100', 'FORMAT': u'image/png', 'REQUEST': u'GetMap', 'HEIGHT': u'400', 'WIDTH': u'1904', 'VERSION': u'1.3.0', 'BBOX': u'-24867967,734592,12389274,8561744', 'TRANSPARENT': u'TRUE'}>
         # get the gee params
-        self.style = parameters['STYLES']
-        gee_params = parameters['LAYERS'].split("!")
+        self.wmsParams = wmsParams(parameters)
+        gee_params = self.wmsParams.layers.split("!")
         self.dataset = gee_params[0]
         self.date = gee_params[1]
         self.remove_cloud = (gee_params[2] == "1")
         self.remove_illumination = (gee_params[3] == "1")
         self.bands = gee_params[4]
-        
-        self.service = parameters['SERVICE']
-        self.crs = parameters['CRS']
-        self.format = parameters['FORMAT']
-        self.request = parameters['REQUEST']
-        self.height = parameters['HEIGHT']
-        self.width = parameters['WIDTH']
-        self.version = parameters['VERSION']
-        self.bbox = parameters['BBOX']
-        self.transparent = parameters['TRANSPARENT']
         
     def illuminationCorrection(self, image):
         # accepts either a single scene which will have the sun elevation and azimuth already populated, or a collection image which will need to have the sun elevation and azimuth manually populated and accessed via the properties
@@ -608,6 +655,20 @@ class geeWMS:
             output = masked.toUint16().focal_median()
             cloudless_images.append(output)
         return ee.ImageCollection(cloudless_images).median()
+    
+class wmsParams:  # class to retrieve the standard wms parameters
+    def __init__(self, parameters):
+        self.style = parameters['STYLES']
+        self.service = parameters['SERVICE']
+        self.crs = parameters['CRS']
+        self.layers = parameters['LAYERS']
+        self.format = parameters['FORMAT']
+        self.request = parameters['REQUEST']
+        self.height = parameters['HEIGHT']
+        self.width = parameters['WIDTH']
+        self.version = parameters['VERSION']
+        self.bbox = parameters['BBOX']
+        self.transparent = parameters['TRANSPARENT']
     
 def dateToDateTime(_date):  # converts a Google date into a Python datetime, e.g. 2013-06-14 to datetime.datetime(2013, 5, 2, 0, 0))
     d = _date.split("-")
