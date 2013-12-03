@@ -11,9 +11,18 @@ from lxml import etree
 from pyproj import Proj
 from pyproj import transform
 
-# constants
+#=====================  CONSTANTS  ==================================================================================================================================================================================================================
+
 CAS_SERVER = "https://intragate.ec.europa.eu"
 WEBPY_COOKIE_NAME = "webpy_session_id"
+hsvIn1 = 'B7'  # Landsat band to use for the input to the HSV band 1
+hsvIn2 = 'B5'  # Landsat band to use for the input to the HSV band 2
+hsvIn3 = 'B4'  # Landsat band to use for the input to the HSV band 3
+hsvIn1Correction = 6  # MODIS to Landsat radiometric correction coefficient for HSV band 1
+hsvIn2Correction = 6  # MODIS to Landsat radiometric correction coefficient for HSV band 1
+hsvIn3Correction = 6  # MODIS to Landsat radiometric correction coefficient for HSV band 1
+
+#=====================  URL HANDLERS  ==================================================================================================================================================================================================================
 
 urls = (
   "/help", "help",
@@ -21,8 +30,11 @@ urls = (
   "/manager", "manager",
   "/gee/getDatesForBB", "getDatesForBB",
   "/gee/getDatesForPoint", "getDatesForPoint",
+  "/gee/getScenesForPoint", "getScenesForPoint",
   "/gee/WMSServer", "geeWMS",
   "/gee/WMS", "gee_WMS",
+  "/gee/WMS_scene_hsv", "gee_WMS_scene_hsv",
+  "/gee/WMS_scene", "gee_WMS_scene",
   "/gee/(.+)", "gee",
   "/endSession", "endSession",
   "/ecasLogin", "ecasLogin",
@@ -48,6 +60,8 @@ class CustomJSONEncoder(json.JSONEncoder):
             return obj.isoformat()
         return json.JSONEncoder.default(self, obj)
 
+#=====================  GET SCHEMAS CLASS  ==================================================================================================================================================================================================================
+
 class getschemas:
     def GET(self):
         try:
@@ -61,6 +75,8 @@ class getschemas:
         except (DopaServicesError, ProgrammingError, OperationalError):
             return "DOPA Services Error: " + str(sys.exc_info())
 
+#=====================  GET SERVICES CLASS  ==================================================================================================================================================================================================================
+
 class getservices:
     def GET(self, schemaname):
         try:
@@ -73,6 +89,8 @@ class getservices:
 
         except (DopaServicesError, ProgrammingError, OperationalError):
             return "DOPA Services Error: " + str(sys.exc_info())
+
+#=====================  GET SERVICE CLASS  ==================================================================================================================================================================================================================
 
 class getservice:
     def GET(self, schemaname, servicename):
@@ -130,6 +148,8 @@ class getservice:
             
             except (DopaServicesError, ProgrammingError, OperationalError):
                 return "DOPA Services Error: " + str(sys.exc_info())
+
+#=====================  CALL SERVICE METHOD TO RETURN DATA FOR A SERVICE  ==================================================================================================================================================================================================================
 
 def callservice(schemaname, servicename, querystring):
     try:  
@@ -236,7 +256,7 @@ def callservice(schemaname, servicename, querystring):
                 recordsdict = [OrderedDict([(allfields[col], row[col]) for col in range(fieldcount) if (col in colsRequired)]) for row in rows] 
             else:
                 recordsdict = [[row[col] for col in range(fieldcount) if (col in colsRequired)] for row in rows]
-            json.encoder.FLOAT_REPR = lambda f: ("%.4f" % f)  # this specifies how many decimal places are returned in the json with float values - currently set to 4
+            json.encoder.FLOAT_REPR = lambda f: ("%.14f" % f)  # this specifies how many decimal places are returned in the json with float values - currently set to 14 - good enough for returning lat/long coordinates
 #             return rows,recordsdict
             if (includemetadata.lower() == 'true'):
                 responsejson = json.dumps(dict([(metadataName, metadatadict), (rootName, recordsdict)]), indent=1, cls=CustomJSONEncoder)
@@ -328,6 +348,32 @@ def callservice(schemaname, servicename, querystring):
 
         else:
             return "DOPA Services Error: " + msg
+
+#=====================  OTHER CLASSES  ==================================================================================================================================================================================================================
+
+class manager:
+    def GET(self):
+        try:
+            render = web.template.render('templates/')
+            conn = dbconnect("species_appuser")
+            conn.cur.execute("select * from especies.species_wdpa_log")
+            rows = conn.cur.fetchall()
+            return render.manager(rows, render.header_manager(), render.footer_manager())
+        
+        except (DopaServicesError, ProgrammingError, OperationalError):
+            return "DOPA Services Error: " + str(sys.exc_info())
+
+class help:
+    def GET(self):
+        render = web.template.render('templates/')
+        return render.help(render.header(), render.footer())
+
+class terms:
+    def GET(self):
+        render = web.template.render('templates/')
+        return render.terms(render.header(), render.footer())
+
+#=====================  CALL SERVICE HELPER FUNCTIONS  ==================================================================================================================================================================================================================
             
 def getQueryStringParams(querystring):
     return OrderedDict([(q.split("=")[0], urllib.unquote(q.split("=")[1])) for q in querystring.split("&")])
@@ -386,26 +432,10 @@ def isNumeric(val):
         return True
 
 def isValidServiceName(servicename):
-    if (servicename[:3] in ['get', 'set']) | (servicename[:6] =='insert') |((servicename[:1] == '_') & (web.ctx.host == 'dopa-services.jrc.it')):
+    if (servicename[:3] in ['get', 'set']) | (servicename[:6] in ['insert', 'delete']) | ((servicename[:1] == '_') & (web.ctx.host == 'dopa-services.jrc.it')):
         return True
     else:
         return False
-
-def requiresAuthentication(servicename):
-    if (servicename[:3] in ['set']) | ((servicename[:4] == '_set') & (web.ctx.host == 'dopa-services.jrc.it')):
-        return True
-    else:
-        return False
-
-def isAuthenticated():
-    cookie = web.cookies().get(WEBPY_COOKIE_NAME)
-    if cookie == None:
-        return False
-    else:
-        if session.loggedin == False:
-            return False
-        username = session.username
-        return True
 
 def runHadoopQuery(conn, functionname, params): 
     try:
@@ -424,6 +454,25 @@ def runHadoopQuery(conn, functionname, params):
                     return resultsDict['results']
     except (DopaServicesError, OperationalError):
         return "DOPA Services Error: " + str(sys.exc_info())
+
+#===============================================   AUTHENTICATION SERVER =============================================================================================================================================
+
+
+def requiresAuthentication(servicename):
+    if (servicename[:3] in ['set']) | ((servicename[:4] == '_set') & (web.ctx.host == 'dopa-services.jrc.it')):
+        return True
+    else:
+        return False
+
+def isAuthenticated():
+    cookie = web.cookies().get(WEBPY_COOKIE_NAME)
+    if cookie == None:
+        return False
+    else:
+        if session.loggedin == False:
+            return False
+        username = session.username
+        return True
 
 class ecasLogin:  # logs into ECAS and sets the session variables
     def GET(self):
@@ -452,27 +501,8 @@ class ecasLogout():  # redirects to the ecas logout page to end an ECAS session
     def GET(self):
         web.redirect(CAS_SERVER + "/cas/logout") 
 
-class manager:
-    def GET(self):
-        try:
-            render = web.template.render('templates/')
-            conn = dbconnect("species_appuser")
-            conn.cur.execute("select * from especies.species_wdpa_log")
-            rows = conn.cur.fetchall()
-            return render.manager(rows, render.header_manager(), render.footer_manager())
-        
-        except (DopaServicesError, ProgrammingError, OperationalError):
-            return "DOPA Services Error: " + str(sys.exc_info())
 
-class help:
-    def GET(self):
-        render = web.template.render('templates/')
-        return render.help(render.header(), render.footer())
-
-class terms:
-    def GET(self):
-        render = web.template.render('templates/')
-        return render.terms(render.header(), render.footer())
+#===============================================   GOOGLE EARTH ENGINE SERVER =============================================================================================================================================
 
 class gee:
     def GET(self, id):
@@ -510,12 +540,22 @@ class getDatesForPoint:
         web.header("Content-Type", "text/javascript")
         return web.input()['callback'] + "({'dates':['" + "','".join([d for d in dates]) + "']})"  # return as a jsonp
 
+class getScenesForPoint:
+    def GET(self):
+        # request will be in the format getScenesForPoint?POINT=-24867967,734592&CRS=EPSG:102100
+        x, y = web.input()['POINT'].split(",")
+        lng, lat = getPointLL(x, y, web.input()['CRS'])
+        # points dont work with GEE, so we have to create a small polygon
+        small_query_polygon = [[[lng - 0.1, lat + 0.1], [lng - 0.1, lat - 0.1], [lng + 0.1, lat - 0.1], [lng + 0.1, lat + 0.1], [lng - 0.1, lat + 0.1]]]
+        gee_authenticate_stored()  # isAuthenticated to GEE 
+        features = ee.ImageCollection("LANDSAT/LC8_L1T").filterBounds(ee.Feature.Polygon(small_query_polygon)).getInfo()  # get the features metadata
+        web.header("Content-Type", "text/javascript")
+        return web.input()['callback'] + "(" + json.dumps(features) + ")"  # return as a jsonp
+
 class gee_WMS:  # class to return a url to a GEE generated image rather than the image itself
     def GET(self):
         try:
             gee_authenticate_stored()  # isAuthenticated using stored credentials and API definitions
-            params = getQueryStringParams(web.ctx.query[1:])  # get the querystring parameters to get the callback function name
-            callback = params.setdefault('callback', None)
             self.parseWMSParams(web.input()) 
             if self.wmsParams.version == "1.3.0":  # get the ll and ur x/y coordinates
                 ll_x, ll_y, ur_x, ur_y = self.wmsParams.bbox.split(",")
@@ -539,18 +579,12 @@ class gee_WMS:  # class to return a url to a GEE generated image rather than the
             if (self.bands == "B4,B3,B2") or (self.bands == "B2,B3,B4"): 
                 image = ee.Image.cat([image.expression("b('B4')+770"), image.select('B3'), image.expression("b('B2')-1230")]);
             min = 7000
-            max = 10000
+            max = 9000
             
             # create the thumbnail
             collection_image_thumbnail = image.getThumbUrl({'bands': self.bands, 'size': self.wmsParams.width + 'x' + self.wmsParams.height , 'min': min, 'max': max, 'region': self.bounding_box})
-            responsejson = json.dumps({"url":collection_image_thumbnail}, indent=1, cls=CustomJSONEncoder)
-            if callback:
-                web.header("Content-Type", "application/javascript") 
-                return callback + '(' + responsejson + ');'                 
-            else:
-                web.header("Content-Type", "application/json") 
-                return responsejson
-        
+            return returnThumbnailJSON(collection_image_thumbnail)
+            
         except (DopaServicesError, ProgrammingError, EEException):
             return "DOPA Services Error: " + str(sys.exc_info())        
 
@@ -562,6 +596,95 @@ class gee_WMS:  # class to return a url to a GEE generated image rather than the
         self.remove_cloud = (gee_params[2] == "1")
         self.remove_illumination = (gee_params[3] == "1")
         self.bands = gee_params[4]
+        
+class gee_WMS_scene:  # single landsat scene created from a Google Earth Engine identifier
+    def GET(self):
+        try:
+            gee_authenticate_stored()  # isAuthenticated using stored credentials and API definitions
+            self.parseWMSParams(web.input())
+            if self.wmsParams.version == "1.3.0":  # get the ll and ur x/y coordinates
+                ll_x, ll_y, ur_x, ur_y = self.wmsParams.bbox.split(",")
+            else:
+                ll_x, ll_y, ur_x, ur_y = self.wmsParams.bbox.split(",")  # same for the moment            
+            self.bounding_box = getBoundingBoxLL(ll_x, ll_y, ur_x, ur_y, self.wmsParams.crs)  # get the bounding box as lat/long suitable for sending to GEE API
+            scene = ee.Image(self.sceneid)
+            min = 7000
+            max = 14000
+            scene_thumbnail = scene.getThumbUrl({'bands': self.bands, 'size': self.wmsParams.width + 'x' + self.wmsParams.height , 'min': min, 'max': max, 'region': self.bounding_box})
+            return returnThumbnailJSON(scene_thumbnail)
+
+        except (DopaServicesError, ProgrammingError, EEException):
+            return "DOPA Services Error: " + str(sys.exc_info())        
+
+    def parseWMSParams(self, parameters):
+        self.wmsParams = wmsParams(parameters)
+        gee_params = self.wmsParams.layers.split("!")
+        self.sceneid = gee_params[0]
+        self.remove_cloud = (gee_params[1] == "1")
+        self.remove_illumination = (gee_params[2] == "1")
+        self.bands = gee_params[3]
+        
+class gee_WMS_scene_hsv:  # single landsat scene created from a Google Earth Engine identifier and converted to hsv
+    def GET(self):
+        try:
+            gee_authenticate_stored()  # isAuthenticated using stored credentials and API definitions
+            self.parseWMSParams(web.input())
+            if self.wmsParams.version == "1.3.0":  # get the ll and ur x/y coordinates
+                ll_x, ll_y, ur_x, ur_y = self.wmsParams.bbox.split(",")
+            else:
+                ll_x, ll_y, ur_x, ur_y = self.wmsParams.bbox.split(",")  # same for the moment            
+            self.bounding_box = getBoundingBoxLL(ll_x, ll_y, ur_x, ur_y, self.wmsParams.crs)  # get the bounding box as lat/long suitable for sending to GEE API
+            scene = ee.Image(self.sceneid)
+            landsat_image = ee.Image.cat(scene.select([hsvIn1, hsvIn2, hsvIn3], ['r', 'g', 'b']))  # get the red, green, blue bands as input to the hsv
+            hsv_input = landsat_image.expression("band/coeff", {'band': landsat_image.select('r', 'g', 'b'), 'coeff': [hsvIn1Correction, hsvIn2Correction, hsvIn3Correction]});  # radiometric correction for landsat
+            hsv_output = self.convertToHsv(hsv_input)  # convert to hsv
+
+            if self.getWater:
+                water = self.detectWaterBodies(hsv_output)
+                water_mask = water.mask(water.select('area_a'))
+                output_thumbnail = water_mask.getThumbUrl({'bands': 'area_a', 'size': self.wmsParams.width + 'x' + self.wmsParams.height , 'region': self.bounding_box, 'palette':'0000ff', min:0, max:1})
+            else:
+                output_thumbnail = hsv_output.getThumbUrl({'bands': 'h,s,v', 'size': self.wmsParams.width + 'x' + self.wmsParams.height , 'region': self.bounding_box, 'gain':'0.8,300,0.01'})
+                
+            return returnThumbnailJSON(output_thumbnail)
+
+        except (DopaServicesError, ProgrammingError, EEException):
+            return "DOPA Services Error: " + str(sys.exc_info())        
+
+    def parseWMSParams(self, parameters):
+        self.wmsParams = wmsParams(parameters)
+        gee_params = self.wmsParams.layers.split("!")
+        self.sceneid = gee_params[0]
+        self.remove_cloud = (gee_params[1] == "1")
+        self.remove_illumination = (gee_params[2] == "1")
+        self.getWater = (gee_params[3] == "1")
+
+    def convertToHsv(self, image):
+      # Value computation
+      maxRGB = image.reduce(ee.Reducer.max())
+      minRGB = image.reduce(ee.Reducer.min())
+      value = maxRGB
+      # Saturation computation
+      saturation = value.subtract(minRGB).divide(value)
+      # Hue computation
+      g_b = image.select(['g'], ['g_b']).subtract(image.select('b'))
+      b_r = image.select(['b'], ['b_r']).subtract(image.select('r'))
+      r_g = image.select(['r'], ['r_g']).subtract(image.select('g'))
+      hue_input = ee.Image([minRGB, image, value.select(['max'], ['value']), g_b, b_r, r_g])
+      hueRed = hue_input.expression("(b('value')==b('r'))*(((60*(b('g_b')/(b('value')-b('min'))))+360)%360)")
+      hueGreen = hue_input.expression("(b('value')==b('g'))*((60*(b('b_r')/(b('value')-b('min'))))+120)")
+      hueBlue = hue_input.expression("(b('value')==b('b'))*((60*(b('r_g')/(b('value')-b('min'))))+240)")
+      hue = ee.Image([hueRed, hueGreen, hueBlue]).reduce(ee.Reducer.max())
+      # return the hsv image
+      return ee.Image([hue.select(['max'], ['h']), saturation.select(['max'], ['s']), value.select(['max'], ['v'])])
+
+    def detectWaterBodies(self, hsv_output):
+        region_ac = hsv_output.expression("((b('h')<(-0.3593*b('v')+360))||(b('h')>(0.0363*b('v')+75.853))||(b('h')>(0.054*b('v')+150.04)))&&b('v')<5500")
+        region_c = hsv_output.expression("(b('h')>(-0.3593*b('v')+360))&&(b('h')<(0.0338*b('v')+195))&&(b('h')<(-0.0445*b('v')+270))&&(b('h')>(0.0366*b('v')+75.853))")
+        region_a = region_ac.subtract(region_c)
+#         region_b = region_ac.not()
+        return ee.Image([region_a.select(['h'], ['area_a']), region_a.select(['h'], ['area_a']), region_c.select(['h'], ['area_c'])])
+        
 
 class geeWMS:
     def GET(self):
@@ -604,7 +727,7 @@ class geeWMS:
             return "DOPA Services Error: " + str(sys.exc_info())        
         
     def getTestImage(self):
-        image = ee.Image('LC81170572013170LGN00')
+        image = ee.Image("LANDSAT/LC8_L1T/LC81970502013330LGN00")
         image_thumbnail = image.getThumbUrl({'bands': 'B6,B5,B4', 'size': '600'})
         return urllib.urlopen(image_thumbnail)  # streams the image back to the client
                
@@ -670,6 +793,18 @@ class wmsParams:  # class to retrieve the standard wms parameters
         self.bbox = parameters['BBOX']
         self.transparent = parameters['TRANSPARENT']
     
+def returnThumbnailJSON(url):
+    params = getQueryStringParams(web.ctx.query[1:])  # get the querystring parameters to get the callback function name
+    callback = params.setdefault('callback', None)
+    responsejson = json.dumps({"url":url})
+    if callback:
+        web.header("Content-Type", "application/javascript") 
+        return callback + '(' + responsejson + ');'                 
+    else:
+        web.header("Content-Type", "application/json") 
+        return responsejson
+
+
 def dateToDateTime(_date):  # converts a Google date into a Python datetime, e.g. 2013-06-14 to datetime.datetime(2013, 5, 2, 0, 0))
     d = _date.split("-")
     return datetime.datetime(int(d[0]), int(d[1]), int(d[2]))
