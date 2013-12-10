@@ -1,5 +1,5 @@
 #!/usr/bin/env python 
-import web, json, sys, exceptions, re, datetime, urllib, select, psycopg2, ast, ee, uuid, math, cPickle, pdfkit, logging, pycas
+import web, json, sys, exceptions, re, datetime, urllib, select, psycopg2, ast, ee, uuid, math, cPickle, pdfkit, logging, pycas, ast
 from amazon_ses import AmazonSES, EmailMessage, AmazonError
 from ee import EEException
 from twilio.rest import TwilioRestClient
@@ -31,9 +31,8 @@ urls = (
   "/gee/getDatesForBB", "getDatesForBB",
   "/gee/getDatesForPoint", "getDatesForPoint",
   "/gee/getScenesForPoint", "getScenesForPoint",
+  "/gee/getValuesForPoint", "getValuesForPoint", 
   "/gee/WMSServer", "geeWMS",
-  "/gee/WMS", "gee_WMS",
-  "/gee/WMS_scene_hsv", "gee_WMS_scene_hsv",
   "/gee/WMS_scene", "gee_WMS_scene",
   "/gee/(.+)", "gee",
   "/endSession", "endSession",
@@ -552,131 +551,141 @@ class getScenesForPoint:
         web.header("Content-Type", "text/javascript")
         return web.input()['callback'] + "(" + json.dumps(features) + ")"  # return as a jsonp
 
-class gee_WMS:  # class to return a url to a GEE generated image rather than the image itself
+class getValuesForPoint:
     def GET(self):
         try:
+            # AUTHENTICATION
             gee_authenticate_stored()  # isAuthenticated using stored credentials and API definitions
-            self.parseWMSParams(web.input()) 
-            if self.wmsParams.version == "1.3.0":  # get the ll and ur x/y coordinates
-                ll_x, ll_y, ur_x, ur_y = self.wmsParams.bbox.split(",")
+        
+            # GET THE INPUT PARAMETERS
+            params = web.input()
+            
+            # GET THE VALUES
+            scene = ee.Image(params['sceneid'])
+            collection = ee.ImageCollection(scene)
+            data = collection.getRegion(ee.Geometry.Point(float(params['longitude']), float(params['latitude'])), 30).getInfo()
+            output_dict = dict([(data[0][i], data[1][i]) for i in range (len(data[0]))])
+            callback = params.setdefault('callback', None)
+            responsejson = json.dumps(output_dict)
+            if callback:
+                web.header("Content-Type", "application/javascript") 
+                return callback + '(' + responsejson + ');'                 
             else:
-                ll_x, ll_y, ur_x, ur_y = self.wmsParams.bbox.split(",")  # same for the moment            
-            self.bounding_box = getBoundingBoxLL(ll_x, ll_y, ur_x, ur_y, self.wmsParams.crs)  # get the bounding box as lat/long suitable for sending to GEE API
-            d, m, y = [int(s) for s in self.date.split("-")]
-            collection = ee.ImageCollection(self.dataset).filterBounds(ee.Feature.Polygon([self.bounding_box])).filterDate(datetime.datetime(y, m, d - 1), datetime.datetime(y, m, d + 1))
-            
-            # cloud correction
-            if self.remove_cloud:
-                image = self.cloudCorrection(collection)
-            else:
-                image = collection.median()
-            
-            # illumination correction
-            if self.remove_illumination:
-                image = self.illuminationCorrection(image)
-                
-            # colour and contrast adjustment
-            if (self.bands == "B4,B3,B2") or (self.bands == "B2,B3,B4"): 
-                image = ee.Image.cat([image.expression("b('B4')+770"), image.select('B3'), image.expression("b('B2')-1230")]);
-            min = 7000
-            max = 9000
-            
-            # create the thumbnail
-            collection_image_thumbnail = image.getThumbUrl({'bands': self.bands, 'size': self.wmsParams.width + 'x' + self.wmsParams.height , 'min': min, 'max': max, 'region': self.bounding_box})
-            return returnThumbnailJSON(collection_image_thumbnail)
-            
+                web.header("Content-Type", "application/json") 
+                return responsejson
+        
         except (DopaServicesError, ProgrammingError, EEException):
             return "DOPA Services Error: " + str(sys.exc_info())        
-
-    def parseWMSParams(self, parameters):
-        self.wmsParams = wmsParams(parameters)
-        gee_params = self.wmsParams.layers.split("!")
-        self.dataset = gee_params[0]
-        self.date = gee_params[1]
-        self.remove_cloud = (gee_params[2] == "1")
-        self.remove_illumination = (gee_params[3] == "1")
-        self.bands = gee_params[4]
-        
+            
 class gee_WMS_scene:  # single landsat scene created from a Google Earth Engine identifier
     def GET(self):
         try:
+            # AUTHENTICATION
             gee_authenticate_stored()  # isAuthenticated using stored credentials and API definitions
-            self.parseWMSParams(web.input())
-            if self.wmsParams.version == "1.3.0":  # get the ll and ur x/y coordinates
-                ll_x, ll_y, ur_x, ur_y = self.wmsParams.bbox.split(",")
-            else:
-                ll_x, ll_y, ur_x, ur_y = self.wmsParams.bbox.split(",")  # same for the moment            
-            self.bounding_box = getBoundingBoxLL(ll_x, ll_y, ur_x, ur_y, self.wmsParams.crs)  # get the bounding box as lat/long suitable for sending to GEE API
-            scene = ee.Image(self.sceneid)
-            min = 7000
-            max = 14000
-            scene_thumbnail = scene.getThumbUrl({'bands': self.bands, 'size': self.wmsParams.width + 'x' + self.wmsParams.height , 'min': min, 'max': max, 'region': self.bounding_box})
-            return returnThumbnailJSON(scene_thumbnail)
+            
+            # PARAMETER PARSING
+            wmsParameters = wmsParams(web.input())  # get the WMS parameters
+            layerParameters = ast.literal_eval(wmsParameters.layers)
 
-        except (DopaServicesError, ProgrammingError, EEException):
-            return "DOPA Services Error: " + str(sys.exc_info())        
-
-    def parseWMSParams(self, parameters):
-        self.wmsParams = wmsParams(parameters)
-        gee_params = self.wmsParams.layers.split("!")
-        self.sceneid = gee_params[0]
-        self.remove_cloud = (gee_params[1] == "1")
-        self.remove_illumination = (gee_params[2] == "1")
-        self.bands = gee_params[3]
-        
-class gee_WMS_scene_hsv:  # single landsat scene created from a Google Earth Engine identifier and converted to hsv
-    def GET(self):
-        try:
-            gee_authenticate_stored()  # isAuthenticated using stored credentials and API definitions
-            self.parseWMSParams(web.input())
-            if self.wmsParams.version == "1.3.0":  # get the ll and ur x/y coordinates
-                ll_x, ll_y, ur_x, ur_y = self.wmsParams.bbox.split(",")
+            # SET THE BOUNDING BOX
+            if wmsParameters.version == "1.3.0":  # get the ll and ur x/y coordinates
+                ll_x, ll_y, ur_x, ur_y = wmsParameters.bbox.split(",")
             else:
-                ll_x, ll_y, ur_x, ur_y = self.wmsParams.bbox.split(",")  # same for the moment            
-            self.bounding_box = getBoundingBoxLL(ll_x, ll_y, ur_x, ur_y, self.wmsParams.crs)  # get the bounding box as lat/long suitable for sending to GEE API
-            scene = ee.Image(self.sceneid)
-            landsat_image = ee.Image.cat(scene.select([hsvIn1, hsvIn2, hsvIn3], ['r', 'g', 'b']))  # get the red, green, blue bands as input to the hsv
-            hsv_input = landsat_image.expression("band/coeff", {'band': landsat_image.select('r', 'g', 'b'), 'coeff': [hsvIn1Correction, hsvIn2Correction, hsvIn3Correction]});  # radiometric correction for landsat
-            hsv_output = self.convertToHsv(hsv_input)  # convert to hsv
+                ll_x, ll_y, ur_x, ur_y = wmsParameters.bbox.split(",")  # same for the moment
+            geeBoundingBox = getBoundingBoxLL(ll_x, ll_y, ur_x, ur_y, wmsParameters.crs)  # get the bounding box as lat/long suitable for sending to GEE API
+            
+            # SET THE MIN/MAX VALUES
+            layerParameters.setdefault("min", 7000)
+            layerParameters.setdefault("max", 14000)
+            
+            # SET THE BANDS 
+            layerParameters.setdefault("redBand", "B4")
+            layerParameters.setdefault("greenBand", "B3")
+            layerParameters.setdefault("blueBand", "B2")
+            geeBands = layerParameters['redBand'] + "," + layerParameters['greenBand'] + "," + layerParameters['blueBand'] 
+            
+            # PROCESS THE INPUT SCENE
+            scene = ee.Image(layerParameters['sceneid'])
+            
+            # APPLY CORRECTIONS IF SPECIFIED
+            # 1. ILLUMINATION CORRECTION
+            layerParameters.setdefault("illuminationCorrection", False)
+            if layerParameters['illuminationCorrection']:
+                scene = self.illuminationCorrection(scene)  # will only return bands 4,3,2
 
-            if self.getWater:
-                water = self.detectWaterBodies(hsv_output)
-                water_mask = water.mask(water.select('area_a'))
-                output_thumbnail = water_mask.getThumbUrl({'bands': 'area_a', 'size': self.wmsParams.width + 'x' + self.wmsParams.height , 'region': self.bounding_box, 'palette':'0000ff', min:0, max:1})
+            # 2. CLOUD REMOVAL
+            layerParameters.setdefault("cloudCorrection", False)
+            
+            # APPLY HSV IF SPECIFIED
+            layerParameters.setdefault("hsv", False)
+            if layerParameters['hsv']:
+                scene = self.convertToHsv(scene)  # will only return bands 4,3,2
+                output_thumbnail = scene.getThumbUrl({'bands': 'h,s,v', 'size': wmsParameters.width + 'x' + wmsParameters.height , 'region': geeBoundingBox, 'gain':'0.8,300,0.01', })
+                return returnThumbnailJSON(output_thumbnail)
+
+            # FINAL STEP IS THE DETECTION PROCESS
+            if 'detectWater' in layerParameters.keys():
+                if layerParameters['detectWater']:
+                    landsat_image = ee.Image.cat(scene.select([hsvIn1, hsvIn2, hsvIn3], ['r', 'g', 'b']))  # get the red, green, blue bands as input to the hsv
+                    hsv_input = landsat_image.expression("band/coeff", {'band': landsat_image.select('r', 'g', 'b'), 'coeff': [hsvIn1Correction, hsvIn2Correction, hsvIn3Correction]});  # radiometric correction for landsat
+                    hsv_output = self.convertToHsv(hsv_input)  # convert to hsv
+                    water = self.detectWaterBodies(hsv_output)  # detect the water
+                    water_mask = water.mask(water.select('area_a'))  # create the mask
+                    output_thumbnail = water_mask.getThumbUrl({'bands': 'area_a', 'size': wmsParameters.width + 'x' + wmsParameters.height , 'region': geeBoundingBox, 'palette':'0000ff', min:0, max:1})
+                    #                 output_thumbnail = hsv_output.getThumbUrl({'bands': 'h,s,v', 'size': wmsParameters.width + 'x' + wmsParameters.height , 'region': geeBoundingBox, 'gain':'0.8,300,0.01'})
             else:
-                output_thumbnail = hsv_output.getThumbUrl({'bands': 'h,s,v', 'size': self.wmsParams.width + 'x' + self.wmsParams.height , 'region': self.bounding_box, 'gain':'0.8,300,0.01'})
-                
+                output_thumbnail = scene.getThumbUrl({'bands': geeBands, 'size': wmsParameters.width + 'x' + wmsParameters.height , 'min': layerParameters['min'], 'max': layerParameters['max'], 'region': geeBoundingBox})
+            
             return returnThumbnailJSON(output_thumbnail)
 
         except (DopaServicesError, ProgrammingError, EEException):
             return "DOPA Services Error: " + str(sys.exc_info())        
 
-    def parseWMSParams(self, parameters):
-        self.wmsParams = wmsParams(parameters)
-        gee_params = self.wmsParams.layers.split("!")
-        self.sceneid = gee_params[0]
-        self.remove_cloud = (gee_params[1] == "1")
-        self.remove_illumination = (gee_params[2] == "1")
-        self.getWater = (gee_params[3] == "1")
+    def illuminationCorrection(self, image):
+        # accepts either a single scene which will have the sun elevation and azimuth already populated, or a collection image which will need to have the sun elevation and azimuth manually populated and accessed via the properties
+        try:
+            terrain = ee.call('Terrain', ee.Image('srtm90_v4'))
+            solar_zenith = (90 - image.getInfo()['properties']['SUN_ELEVATION'])
+#             solar_zenith = 31.627850000000002
+            solar_azimuth = image.getInfo()['properties']['SUN_AZIMUTH']
+#             solar_azimuth = 50.377735
+            solar_zenith_radians = (solar_zenith * math.pi) / 180
+            slope_radians = terrain.select(['slope']).expression("(b('slope')*" + str(math.pi) + ")/180")
+            aspect = terrain.select(['aspect'])
+            cosZ = math.cos(solar_zenith_radians)
+            cosS = slope_radians.cos()
+            slope_illumination = cosS.expression("b('slope')*(" + str(cosZ) + ")").select(['slope'], ['b1'])
+            sinZ = math.sin(solar_zenith_radians)
+            sinS = slope_radians.sin()
+            azimuth_diff_radians = aspect.expression("((b('aspect')-" + str(solar_azimuth) + ")*" + str(math.pi) + ")/180")
+            cosPhi = azimuth_diff_radians.cos()
+            aspect_illumination = cosPhi.multiply(sinS).expression("b('aspect')*" + str(sinZ)).select(['aspect'], ['b1'])
+            ic = slope_illumination.add(aspect_illumination)
+            return image.expression("((image * (cosZ + coeff)) / (ic + coeff)) + offsets", {'image': image.select('B4', 'B3', 'B2'), 'ic': ic, 'cosZ': cosZ, 'coeff': [12, 9, 25], 'offsets': [0, 0, 0]})
 
+        except (DopaServicesError, ProgrammingError, EEException):
+            return "DOPA Services Error: " + str(sys.exc_info())        
+        
+        
     def convertToHsv(self, image):
-      # Value computation
-      maxRGB = image.reduce(ee.Reducer.max())
-      minRGB = image.reduce(ee.Reducer.min())
-      value = maxRGB
-      # Saturation computation
-      saturation = value.subtract(minRGB).divide(value)
-      # Hue computation
-      g_b = image.select(['g'], ['g_b']).subtract(image.select('b'))
-      b_r = image.select(['b'], ['b_r']).subtract(image.select('r'))
-      r_g = image.select(['r'], ['r_g']).subtract(image.select('g'))
-      hue_input = ee.Image([minRGB, image, value.select(['max'], ['value']), g_b, b_r, r_g])
-      hueRed = hue_input.expression("(b('value')==b('r'))*(((60*(b('g_b')/(b('value')-b('min'))))+360)%360)")
-      hueGreen = hue_input.expression("(b('value')==b('g'))*((60*(b('b_r')/(b('value')-b('min'))))+120)")
-      hueBlue = hue_input.expression("(b('value')==b('b'))*((60*(b('r_g')/(b('value')-b('min'))))+240)")
-      hue = ee.Image([hueRed, hueGreen, hueBlue]).reduce(ee.Reducer.max())
-      # return the hsv image
-      return ee.Image([hue.select(['max'], ['h']), saturation.select(['max'], ['s']), value.select(['max'], ['v'])])
+        image = ee.Image.cat(image.select([hsvIn1, hsvIn2, hsvIn3], ['r', 'g', 'b']))  # get the red, green, blue bands as input to the hsv
+        image = image.expression("band/coeff", {'band': image.select('r', 'g', 'b'), 'coeff': [hsvIn1Correction, hsvIn2Correction, hsvIn3Correction]});  # radiometric correction for landsat
+        # Value computation
+        maxRGB = image.reduce(ee.Reducer.max())
+        minRGB = image.reduce(ee.Reducer.min())
+        value = maxRGB
+        # Saturation computation
+        saturation = value.subtract(minRGB).divide(value)
+        # Hue computation
+        g_b = image.select(['g'], ['g_b']).subtract(image.select('b'))
+        b_r = image.select(['b'], ['b_r']).subtract(image.select('r'))
+        r_g = image.select(['r'], ['r_g']).subtract(image.select('g'))
+        hue_input = ee.Image([minRGB, image, value.select(['max'], ['value']), g_b, b_r, r_g])
+        hueRed = hue_input.expression("(b('value')==b('r'))*(((60*(b('g_b')/(b('value')-b('min'))))+360)%360)")
+        hueGreen = hue_input.expression("(b('value')==b('g'))*((60*(b('b_r')/(b('value')-b('min'))))+120)")
+        hueBlue = hue_input.expression("(b('value')==b('b'))*((60*(b('r_g')/(b('value')-b('min'))))+240)")
+        hue = ee.Image([hueRed, hueGreen, hueBlue]).reduce(ee.Reducer.max())
+        return ee.Image([hue.select(['max'], ['h']), saturation.select(['max'], ['s']), value.select(['max'], ['v'])])
 
     def detectWaterBodies(self, hsv_output):
         region_ac = hsv_output.expression("((b('h')<(-0.3593*b('v')+360))||(b('h')>(0.0363*b('v')+75.853))||(b('h')>(0.054*b('v')+150.04)))&&b('v')<5500")
@@ -684,7 +693,6 @@ class gee_WMS_scene_hsv:  # single landsat scene created from a Google Earth Eng
         region_a = region_ac.subtract(region_c)
 #         region_b = region_ac.not()
         return ee.Image([region_a.select(['h'], ['area_a']), region_a.select(['h'], ['area_a']), region_c.select(['h'], ['area_c'])])
-        
 
 class geeWMS:
     def GET(self):
