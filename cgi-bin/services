@@ -1,5 +1,6 @@
 #!/usr/bin/env python 
-import web, json, sys, exceptions, re, datetime, urllib, select, psycopg2, ast, ee, uuid, math, cPickle, pdfkit, logging, pycas, ast
+import web, json, sys, exceptions, re, datetime, urllib, select, psycopg2, ast, ee, uuid, math, cPickle, pdfkit, logging, pycas, ast, earthEngine
+from earthEngine import GoogleEarthEngineError
 from amazon_ses import AmazonSES, EmailMessage, AmazonError
 from ee import EEException
 from twilio.rest import TwilioRestClient
@@ -31,7 +32,10 @@ urls = (
   "/gee/getDatesForBB", "getDatesForBB",
   "/gee/getDatesForPoint", "getDatesForPoint",
   "/gee/getScenesForPoint", "getScenesForPoint",
-  "/gee/getValuesForPoint", "getValuesForPoint", 
+  "/gee/getValuesForPoint", "getValuesForPoint",
+  "/gee/createValidationSites", "createValidationSites",
+  "/gee/getValuesForPoints", "getValuesForPoints",
+  "/gee/getValuesForPolygon", "getValuesForPolygon",
   "/gee/WMSServer", "geeWMS",
   "/gee/WMS_scene", "gee_WMS_scene",
   "/gee/(.+)", "gee",
@@ -162,7 +166,6 @@ def callservice(schemaname, servicename, querystring):
         # get the standard optional parameters from the url 
         format = params.setdefault('format', 'json') 
         fields = params.setdefault('fields', '').split(",")  # fields will be passed as an array, e.g. iucn_species_id,wdpa_id
-        callback = params.setdefault('callback', None)
         includemetadata = params.setdefault('includemetadata', 'true')
         metadataName = params.setdefault('metadataname', 'metadata')
         rootName = params.setdefault('rootname', 'records')
@@ -170,7 +173,9 @@ def callservice(schemaname, servicename, querystring):
         isHadoop = ('true' if (servicename[-2:] == '_h') else 'false')  # if the service is a call to a hadoop method then set a flag 
 
         # remove the standard optional parameters from the dictionary so we are left with just the parameters required for the function
-        del (params['format'], params['fields'], params['callback'], params['includemetadata'], params['parseparams'], params['metadataname'], params['rootname'])
+        del (params['format'], params['fields'], params['includemetadata'], params['parseparams'], params['metadataname'], params['rootname'])
+        if 'callback' in params.keys():
+            del(params['callback'])
 
         # check if the service name is valid
         if not (isValidServiceName(servicename)):
@@ -261,12 +266,7 @@ def callservice(schemaname, servicename, querystring):
                 responsejson = json.dumps(dict([(metadataName, metadatadict), (rootName, recordsdict)]), indent=1, cls=CustomJSONEncoder)
             else: 
                 responsejson = json.dumps(dict([(rootName, recordsdict)]), indent=1, cls=CustomJSONEncoder)
-            if callback:
-                web.header("Content-Type", "application/javascript") 
-                return callback + '(' + responsejson + ');'                 
-            else:
-                web.header("Content-Type", "application/json") 
-                return responsejson
+            return getJsonResponse(responsejson)
         
         elif format == 'xml':
             root = etree.Element('results')
@@ -338,13 +338,8 @@ def callservice(schemaname, servicename, querystring):
         if format in ['json', 'array']:
             metadatadict = OrderedDict([("duration", str(t2 - t1)), ("error", msg), ("idProperty", None), ("successProperty", 'success'), ("totalProperty", 'recordCount'), ("success", False), ("recordCount", 0), ("root", None), ("fields", None)])    
             responsejson = json.dumps(dict([(metadataName, metadatadict), (rootName, None)]), indent=1)
-            if callback:
-                web.header("Content-Type", "application/javascript") 
-                return callback + '(' + responsejson + ');'                 
-            else:
-                web.header("Content-Type", "application/json") 
-                return responsejson
-
+            return getJsonResponse(responsejson)
+            
         else:
             return "DOPA Services Error: " + msg
 
@@ -531,7 +526,6 @@ class getDatesForPoint:
         lng, lat = getPointLL(x, y, web.input()['CRS'])
         # points dont work with GEE, so we have to create a small polygon
         small_query_polygon = [[[lng - 0.1, lat + 0.1], [lng - 0.1, lat - 0.1], [lng + 0.1, lat - 0.1], [lng + 0.1, lat + 0.1], [lng - 0.1, lat + 0.1]]]
-#         return web.input()['callback'] + "({'wibble':1})"
         gee_authenticate_stored()  # isAuthenticated to GEE 
         stringDates = ee.ImageCollection("LANDSAT/LC8_L1T").filterBounds(ee.Feature.Polygon(small_query_polygon)).aggregate_array("DATE_ACQUIRED").getInfo()  # get the dates as strings
         dates = [dateToDateTime(s) for s in stringDates]
@@ -539,7 +533,7 @@ class getDatesForPoint:
         web.header("Content-Type", "text/javascript")
         return web.input()['callback'] + "({'dates':['" + "','".join([d for d in dates]) + "']})"  # return as a jsonp
 
-class getScenesForPoint:
+class getScenesForPoint:  # http://dopa-services.jrc.it/services/gee/getValuesForPoint?latitude=14.84368017499996&longitude=-3.990951058630029&sceneid=LANDSAT%2FLC8_L1T%2FLC81970502013330LGN00
     def GET(self):
         # request will be in the format getScenesForPoint?POINT=-24867967,734592&CRS=EPSG:102100
         x, y = web.input()['POINT'].split(",")
@@ -548,87 +542,131 @@ class getScenesForPoint:
         small_query_polygon = [[[lng - 0.1, lat + 0.1], [lng - 0.1, lat - 0.1], [lng + 0.1, lat - 0.1], [lng + 0.1, lat + 0.1], [lng - 0.1, lat + 0.1]]]
         gee_authenticate_stored()  # isAuthenticated to GEE 
         features = ee.ImageCollection("LANDSAT/LC8_L1T").filterBounds(ee.Feature.Polygon(small_query_polygon)).getInfo()  # get the features metadata
-        web.header("Content-Type", "text/javascript")
-        return web.input()['callback'] + "(" + json.dumps(features) + ")"  # return as a jsonp
+        responsejson = json.dumps(features)
+        return getJsonResponse(responsejson)
+
+class getValuesForPoints:  # http://dopa-services.jrc.it/services/gee/getValuesForPoints?sceneid=L7_L1T%2FLE70310432001166EDC01&points=[[-105.83545,24.42247],[-105.84545,24.42247]]
+    def GET(self):
+        try:
+            # GET THE INPUT PARAMETERS
+            params = web.input()
+            # GET THE POINTS
+            pointsArray = ast.literal_eval(params['points'])
+            vals = earthEngine.getValuesForPoints(params['sceneid'], pointsArray)
+            responsejson = json.dumps(vals)
+            return getJsonResponse(responsejson)
+                        
+        except (GoogleEarthEngineError):
+            return "Google Earth Engine Error: " + str(sys.exc_info())        
+
+class createValidationSites:  # http://dopa-services.jrc.it/services/gee/createValidationSites?sceneid=LANDSAT%2FLC8_L1T%2FLC81970502013330LGN00&scenedate=2013-11-26%2010%3A39%3A38.1039567Z&draftSites=%5B%5B-4.113173959020702%2C14.960465199416%2C%22Waterbodies%22%5D%2C%5B-4.258742806677007%2C14.927294080825337%2C%22Waterbodies%22%5D%2C%5B-4.210677621130114%2C14.862263844590363%2C%22Waterbodies%22%5D%5D&callback=dojo_request_script_callbacks.dojo_request_script7&username=Andrew%20Cottam
+    def GET(self):
+        try:
+            # GET THE INPUT PARAMETERS
+            params = web.input()
+            username = params['username']
+            scenedate = params['scenedate']
+            sceneid = params['sceneid']
+            if sceneid[:11] == "LANDSAT/LC8":
+                sensor = "Landsat 8"
+            else:
+                sensor = "Landsat 7"
+            # GET THE POINTS
+            sitesArray = ast.literal_eval(params['draftSites']) # the the array of draft sites
+            lc = [item[2] for item in sitesArray]               # get the land cover types from the array
+            pointsArray = [[item[0], item[1]] for item in sitesArray] # get the array of points from the draft sites
+            data = earthEngine.getValuesForPoints(params['sceneid'], pointsArray) # send these to GEE to get the pixel values
+            if len(data) == 1:
+                raise DopaServicesError('No validation sites created. Google Earth Engine did not have any pixel data for the passed geometries')
+            fields = data[0]                                    # get the fields returned from GEE
+            fieldValues = data[1:]                              # get the field values returned from GEE
+            insertinto = "INSERT INTO gee_training_data(land_cover, lat, lng, sensor, sceneid, image_date, band1, band2, band3, band4, band5, band6, band7, band8, band9, band10, band11, bqa, username, entry_date, hue, saturation,val) VALUES"
+            values = ""
+            for i in range(len(data[1:])):                      # create the VALUES (''),('') statement
+                values = values + "('" + lc[i] + "'," + str(fieldValues[i][2]) + "," + str(fieldValues[i][1]) + ",'" + sensor + "','" + sceneid + "','" + scenedate + "'"
+                for j in range(len(fields[4:])):                # iterate through the bands pixel values to write the string
+                    values = values + "," + str(int(fieldValues[i][j + 4]))
+                h, s, v = rgbTohsv(int(fieldValues[i][10]), int(fieldValues[i][8]), int(fieldValues[i][7]))  # bands B7, B5, B4 for Landsat 8
+                values = values + ",'" + username + "','" + str(datetime.datetime.now()) + "'," + str(h) + "," + str(s) + "," + str(v) + "),"
+            sql = insertinto + values[:-1]
+            conn = dbconnect("species_especies_schema")
+            conn.cur.execute(sql)
+            responsejson = json.dumps({'rowcount':conn.cur.rowcount})
+            return getJsonResponse(responsejson)
+                        
+        except (DopaServicesError, GoogleEarthEngineError):
+            return "Google Earth Engine Error: " + str(sys.exc_info())        
+
+class getValuesForPolygon:  # 
+    def GET(self):
+        try:
+            # GET THE INPUT PARAMETERS
+            params = web.input()
+            return web.input()
+            # GET THE POLYGON
+            vals = earthEngine.getValuesForPolygon(params['sceneid'])
+            responsejson = json.dumps(vals)
+            return getJsonResponse(responsejson)
+                        
+        except (GoogleEarthEngineError):
+            return "Google Earth Engine Error: " + str(sys.exc_info())        
 
 class getValuesForPoint:
     def GET(self):
         try:
             # AUTHENTICATION
             gee_authenticate_stored()  # isAuthenticated using stored credentials and API definitions
-        
             # GET THE INPUT PARAMETERS
             params = web.input()
-            
             # GET THE VALUES
-            scene = ee.Image(params['sceneid'])
-            collection = ee.ImageCollection(scene)
-            data = collection.getRegion(ee.Geometry.Point(float(params['longitude']), float(params['latitude'])), 30).getInfo()
-            output_dict = dict([(data[0][i], data[1][i]) for i in range (len(data[0]))])
-            callback = params.setdefault('callback', None)
-            responsejson = json.dumps(output_dict)
-            if callback:
-                web.header("Content-Type", "application/javascript") 
-                return callback + '(' + responsejson + ');'                 
-            else:
-                web.header("Content-Type", "application/json") 
-                return responsejson
-        
-        except (DopaServicesError, ProgrammingError, EEException):
-            return "DOPA Services Error: " + str(sys.exc_info())        
+            vals = earthEngine.getValuesForPoint(params['sceneid'], float(params['latitude']), float(params['longitude']))
+            responsejson = json.dumps(vals)
+            return getJsonResponse(responsejson)
+                        
+        except (GoogleEarthEngineError):
+            return "Google Earth Engine Error: " + str(sys.exc_info())        
             
 class gee_WMS_scene:  # single landsat scene created from a Google Earth Engine identifier
     def GET(self):
         try:
             # AUTHENTICATION
             gee_authenticate_stored()  # isAuthenticated using stored credentials and API definitions
-            
             # PARAMETER PARSING
             wmsParameters = wmsParams(web.input())  # get the WMS parameters
             layerParameters = ast.literal_eval(wmsParameters.layers)
-
             # SET THE BOUNDING BOX
             if wmsParameters.version == "1.3.0":  # get the ll and ur x/y coordinates
                 ll_x, ll_y, ur_x, ur_y = wmsParameters.bbox.split(",")
             else:
                 ll_x, ll_y, ur_x, ur_y = wmsParameters.bbox.split(",")  # same for the moment
             geeBoundingBox = getBoundingBoxLL(ll_x, ll_y, ur_x, ur_y, wmsParameters.crs)  # get the bounding box as lat/long suitable for sending to GEE API
-            
             # SET THE MIN/MAX VALUES
             layerParameters.setdefault("min", 7000)
             layerParameters.setdefault("max", 14000)
-            
             # SET THE BANDS 
             layerParameters.setdefault("redBand", "B4")
             layerParameters.setdefault("greenBand", "B3")
             layerParameters.setdefault("blueBand", "B2")
             geeBands = layerParameters['redBand'] + "," + layerParameters['greenBand'] + "," + layerParameters['blueBand'] 
-            
             # PROCESS THE INPUT SCENE
             scene = ee.Image(layerParameters['sceneid'])
-            
             # APPLY CORRECTIONS IF SPECIFIED
             # 1. ILLUMINATION CORRECTION
             layerParameters.setdefault("illuminationCorrection", False)
             if layerParameters['illuminationCorrection']:
                 scene = self.illuminationCorrection(scene)  # will only return bands 4,3,2
-
             # 2. CLOUD REMOVAL
             layerParameters.setdefault("cloudCorrection", False)
-            
             # APPLY HSV IF SPECIFIED
             layerParameters.setdefault("hsv", False)
             if layerParameters['hsv']:
                 scene = self.convertToHsv(scene)  # will only return bands 4,3,2
                 output_thumbnail = scene.getThumbUrl({'bands': 'h,s,v', 'size': wmsParameters.width + 'x' + wmsParameters.height , 'region': geeBoundingBox, 'gain':'0.8,300,0.01', })
                 return returnThumbnailJSON(output_thumbnail)
-
             # FINAL STEP IS THE DETECTION PROCESS
             if 'detectWater' in layerParameters.keys():
                 if layerParameters['detectWater']:
-                    landsat_image = ee.Image.cat(scene.select([hsvIn1, hsvIn2, hsvIn3], ['r', 'g', 'b']))  # get the red, green, blue bands as input to the hsv
-                    hsv_input = landsat_image.expression("band/coeff", {'band': landsat_image.select('r', 'g', 'b'), 'coeff': [hsvIn1Correction, hsvIn2Correction, hsvIn3Correction]});  # radiometric correction for landsat
-                    hsv_output = self.convertToHsv(hsv_input)  # convert to hsv
+                    hsv_output = self.convertToHsv(scene)  # convert to hsv
                     water = self.detectWaterBodies(hsv_output)  # detect the water
                     water_mask = water.mask(water.select('area_a'))  # create the mask
                     output_thumbnail = water_mask.getThumbUrl({'bands': 'area_a', 'size': wmsParameters.width + 'x' + wmsParameters.height , 'region': geeBoundingBox, 'palette':'0000ff', min:0, max:1})
@@ -803,15 +841,17 @@ class wmsParams:  # class to retrieve the standard wms parameters
     
 def returnThumbnailJSON(url):
     params = getQueryStringParams(web.ctx.query[1:])  # get the querystring parameters to get the callback function name
-    callback = params.setdefault('callback', None)
     responsejson = json.dumps({"url":url})
+    return getJsonResponse(responsejson)
+
+def getJsonResponse(json):
+    callback = web.input().setdefault('callback', None)
     if callback:
         web.header("Content-Type", "application/javascript") 
-        return callback + '(' + responsejson + ');'                 
+        return callback + '(' + json + ');'                 
     else:
         web.header("Content-Type", "application/json") 
-        return responsejson
-
+        return json
 
 def dateToDateTime(_date):  # converts a Google date into a Python datetime, e.g. 2013-06-14 to datetime.datetime(2013, 5, 2, 0, 0))
     d = _date.split("-")
@@ -866,6 +906,21 @@ def getProjections(crs):
             p1 = Proj(init=crs)
         p2 = Proj(init='epsg:4326')
         return p1, p2    
+
+def rgbTohsv(r, g, b):
+    maxVal = float(max(r, g, b))
+    minVal = float(min(r, g, b))
+    val = maxVal
+    saturation = (val - minVal) / maxVal
+    if val == minVal:
+        hue = 0
+    elif val == r:
+        hue = ((((g - b) / (val - minVal)) * 60) + 360) % 360
+    elif val == g:
+        hue = (((b - r) / (val - minVal) * 60) + 120)
+    elif val == b:
+        hue = (((r - g) / (val - minVal) * 60) + 240)
+    return (hue, saturation, val)
     
 if __name__ == "__main__":
     app.run()
