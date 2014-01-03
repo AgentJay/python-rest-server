@@ -21,6 +21,7 @@ urls = (
   "/help", "help",
   "/terms", "terms",
   "/manager", "manager",
+  "/gee/getAPIVersion", "getAPIVersion",
   "/gee/getDatesForBB", "getDatesForBB",
   "/gee/getDatesForPoint", "getDatesForPoint",
   "/gee/getScenesForPoint", "getScenesForPoint",
@@ -491,6 +492,10 @@ class ecasLogout():  # redirects to the ecas logout page to end an ECAS session
 
 #===============================================   GOOGLE EARTH ENGINE SERVER =============================================================================================================================================
 
+class getAPIVersion:
+    def GET(self):
+        return 'wibble'
+    
 class getDatesForBB:  # http://dopa-services.jrc.it/services/gee/getDatesForBB?BBOX=114,5,115,6&CRS=EPSG:4326
     def GET(self):
         ll_x, ll_y, ur_x, ur_y = web.input()['BBOX'].split(",")
@@ -513,6 +518,7 @@ class getScenesForPoint:  # http://dopa-services.jrc.it/services/gee/getScenesFo
     def GET(self):
         x, y = web.input()['POINT'].split(",")
         scenes = earthEngine.getScenesForPoint(web.input()['collection'], x, y, web.input()['CRS'])
+#         return scenes['features'][0]['properties']['DATE_ACQUIRED']
         return getJsonResponse(json.dumps(scenes))
 
 class getValuesForPoint:  # http://dopa-services.jrc.it/services/gee/getValuesForPoint?sceneid=L7_L1T%2FLE70310432001166EDC01&POINT=-105.83545,24.42247&CRS=EPSG:4326

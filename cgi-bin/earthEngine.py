@@ -1,4 +1,5 @@
 import sys, ee, cPickle, utilities, math, datetime
+from dbconnect import google_earth_engine
 from orderedDict import OrderedDict
 from ee import EEException
 
@@ -149,20 +150,20 @@ def getDatesForPoint(x, y, crs):
         authenticate()
         lng, lat = utilities.getPointLL(x, y, crs)
         # points dont work with GEE, so we have to create a small polygon
-        small_query_polygon = [[[lng - 0.1, lat + 0.1], [lng - 0.1, lat - 0.1], [lng + 0.1, lat - 0.1], [lng + 0.1, lat + 0.1], [lng - 0.1, lat + 0.1]]]
+        small_query_polygon = [[[lng - 0.00001, lat + 0.00001], [lng - 0.00001, lat - 0.00001], [lng + 0.00001, lat - 0.00001], [lng + 0.00001, lat + 0.00001], [lng - 0.00001, lat + 0.00001]]]
         stringDates = ee.ImageCollection("LANDSAT/LC8_L1T").filterBounds(ee.Feature.Polygon(small_query_polygon)).aggregate_array("DATE_ACQUIRED").getInfo()  # get the dates as strings
         dates = [dateToDateTime(s) for s in stringDates]
         return [s.isoformat() for s in sorted(set(dates))]  # convert them to properly formatted strings 
 
     except (EEException):
         return "Google Earth Engine Error: " + str(sys.exc_info())        
-
+        
 def getScenesForPoint(collection, x, y, crs):  
     try:
         authenticate()
         lng, lat = utilities.getPointLL(x, y, crs)
         # points dont work with GEE, so we have to create a small polygon
-        small_query_polygon = [[[lng - 0.0001, lat + 0.0001], [lng - 0.0001, lat - 0.0001], [lng + 0.0001, lat - 0.0001], [lng + 0.0001, lat + 0.0001], [lng - 0.0001, lat + 0.0001]]]
+        small_query_polygon = [[[lng - 0.00001, lat + 0.00001], [lng - 0.00001, lat - 0.00001], [lng + 0.00001, lat - 0.00001], [lng + 0.00001, lat + 0.00001], [lng - 0.00001, lat + 0.00001]]]
         scenes = ee.ImageCollection(collection).filterBounds(ee.Feature.Polygon(small_query_polygon)).getInfo()  # LANDSAT/LC8_L1T is USGS Landsat 8 Raw Scenes (Orthorectified)
         return scenes
 
@@ -222,3 +223,8 @@ def authenticate():
     ee.String.initialize()
     ee._InitializeGeneratedClasses()
     ee._InitializeUnboundMethods()
+    
+def authenticate_live():
+    # initialisation
+    _google_earth_engine = google_earth_engine()
+    ee.Initialize(ee.ServiceAccountCredentials(_google_earth_engine.MY_SERVICE_ACCOUNT, _google_earth_engine.MY_PRIVATE_KEY_FILE))
