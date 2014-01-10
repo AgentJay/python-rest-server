@@ -1,5 +1,5 @@
 #!/usr/bin/env python 
-import web, json, sys, exceptions, re, datetime, urllib, select, psycopg2, ast, ee, uuid, math, cPickle, pdfkit, logging, pycas, ast, earthEngine, utilities, glob
+import web, json, sys, exceptions, re, datetime, urllib, select, psycopg2, ast, ee, uuid, math, cPickle, pdfkit, logging, pycas, ast, earthEngine, utilities, glob#, cv2
 from earthEngine import GoogleEarthEngineError
 from amazon_ses import AmazonSES, EmailMessage, AmazonError
 from ee import EEException
@@ -32,7 +32,7 @@ urls = (
   "/gee/WMSServer", "geeWMS",
   "/gee/WMS_scene", "gee_WMS_scene",
   "/gee/WMS_sequence", "gee_WMS_sequence",
-  "/gee/(.+)", "gee",
+  "/gee/WMS_video", "gee_WMS_video",
   "/endSession", "endSession",
   "/ecasLogin", "ecasLogin",
   "/ecasLogout", "ecasLogout",
@@ -420,7 +420,7 @@ def isNumeric(val):
         return True
 
 def isValidServiceName(servicename):
-    if (servicename[:3] in ['get', 'set']) | (servicename[:6] in ['insert', 'delete']) | (servicename[:4] in ['_get', '_set']) | (servicename[:7] in ['_insert', '_delete']): #removed - | ((servicename[:1] == '_') & (web.ctx.host == 'dopa-services.jrc.it'))
+    if (servicename[:3] in ['get', 'set']) | (servicename[:6] in ['insert', 'delete']) | (servicename[:4] in ['_get', '_set']) | (servicename[:7] in ['_insert', '_delete']):  # removed - | ((servicename[:1] == '_') & (web.ctx.host == 'dopa-services.jrc.it'))
         return True
     else:
         return False
@@ -561,12 +561,12 @@ class gee_WMS_scene:  # single landsat scene created from a Google Earth Engine 
         except (DopaServicesError, ProgrammingError, EEException):
             return "DOPA Services Error: " + str(sys.exc_info())        
 
-class gee_WMS_sequence():  # http://dopa-services.jrc.it/services/gee/WMS_sequence?POINT=-480654,1687548&CRS=EPSG:102100
-    # http://dopa-services.jrc.it/services/gee/WMS_sequence?POINT=32.84882974169116,14.36796906455707&CRS=EPSG:4326 #for Sudan
+class gee_WMS_sequence():  # http://dopa-services.jrc.it/services/gee/WMS_sequence?POINT=-480654,1687548&CRS=EPSG:102100&collection=LANDSAT/LC8_L1T
+    # http://dopa-services.jrc.it/services/gee/WMS_sequence?POINT=32.84882974169116,14.36796906455707&CRS=EPSG:4326&collection=LANDSAT/LC8_L1T #for Sudan
     def GET(self):
         try:
             x, y = web.input()['POINT'].split(",")
-            scenes = earthEngine.getScenesForPoint(x, y, web.input()['CRS'])
+            scenes = earthEngine.getScenesForPoint(web.input()['collection'], x, y, web.input()['CRS'])
             layerParameters = {"detectWater":True}
             for scene in scenes['features']:
                 sceneid = scene['id']
@@ -575,14 +575,31 @@ class gee_WMS_sequence():  # http://dopa-services.jrc.it/services/gee/WMS_sequen
                 ur_x = scene['properties']['CORNER_UR_LON_PRODUCT']
                 ur_y = scene['properties']['CORNER_UR_LAT_PRODUCT']
                 date_acquired = scene['properties']['DATE_ACQUIRED']
-                output_thumbnail = earthEngine.getSceneImage(sceneid, ll_x, ll_y, ur_x, ur_y, "EPSG:4326", "B4,B3,B2", "1000", "1000", layerParameters)
+                output_thumbnail = earthEngine.getSceneImage(sceneid, ll_x, ll_y, ur_x, ur_y, "EPSG:4326", "1000", "1000", layerParameters)
                 filename = urllib.urlretrieve(output_thumbnail, '../../htdocs/mstmp/landsat_' + date_acquired + '.png')
             imgFiles = glob.glob('../../htdocs/mstmp/landsat_*.png')
             return filename
         
         except (DopaServicesError, ProgrammingError, EEException):
             return "DOPA Services Error: " + str(sys.exc_info())        
-        
+
+class gee_WMS_video():
+    def GET(self):
+        try:
+#             sys.path.append('/usr/local/src/opencv-2.4.8')
+            images = glob.glob ('/srv/www/htdocs/mstmp/landsat_*.png')
+            img = cv2.imread(images[0])
+            height , width , layers = img.shape
+            video = cv2.VideoWriter('/srv/www/htdocs/mstmp/video.avi', -1, 1, (width, height))
+            for image in images:
+                video.write(cv2.imread(image))
+            cv2.destroyAllWindows() #giving an error at the moment
+            video.release()
+            return "done"
+
+        except (DopaServicesError, ProgrammingError, EEException):
+            return "DOPA Services Error: " + str(sys.exc_info())        
+                
 class createValidationSites:  # http://dopa-services.jrc.it/services/gee/createValidationSites?sceneid=LANDSAT%2FLC8_L1T%2FLC81970502013330LGN00&scenedate=2013-11-26%2010%3A39%3A38.1039567Z&draftSites=%5B%5B-4.113173959020702%2C14.960465199416%2C%22Waterbodies%22%5D%2C%5B-4.258742806677007%2C14.927294080825337%2C%22Waterbodies%22%5D%2C%5B-4.210677621130114%2C14.862263844590363%2C%22Waterbodies%22%5D%5D&callback=dojo_request_script_callbacks.dojo_request_script7&username=Andrew%20Cottam
     def GET(self):
         try:

@@ -40,14 +40,15 @@ def getSceneImage(sceneid, ll_x, ll_y, ur_x, ur_y, crs, width, height, layerPara
         # APPLY HSV IF SPECIFIED
         layerParameters.setdefault("hsv", False)
         if layerParameters['hsv']:
-            scene = convertToHsv(scene, sensor)  # will only return bands 4,3,2
+            scene = convertToHsv(scene, sensor)  # will only return bands 7,5,4 in Landsat 8
             output_thumbnail = scene.getThumbUrl({'bands': 'h,s,v', 'size': width + 'x' + height , 'region': region, 'gain':'0.8,300,0.01', })
             return output_thumbnail
         # FINAL STEP IS THE DETECTION PROCESS
         if 'detectWater' in layerParameters.keys():
             if layerParameters['detectWater']:
                 hsv_output = convertToHsv(scene, sensor)  # convert to hsv
-                water = detectWaterBodies(hsv_output)  # detect the water
+                layerParameters.setdefault("classMembershipExpression", "((b('h')>(0.12*b('v'))-600)&&(b('h')<=120)&&(b('h')>=0))||((b('h')>(0.02*b('v'))+0)&&(b('h')<=180)&&(b('h')>=120))||((b('h')>(0.00625*b('v'))+123.75)&&(b('h')<=230)&&(b('h')>=180))||((b('h')>(0.13*b('v'))-1980)&&(b('h')<=360)&&(b('h')>=230))")
+                water = detectWaterBodies(hsv_output, layerParameters['classMembershipExpression'])  # detect the water
                 water_mask = water.mask(water.select('area_ac'))  # create the mask
                 output_thumbnail = water_mask.getThumbUrl({'bands': 'area_ac', 'size': width + 'x' + height , 'region': region, 'palette':'0000ff', min:0, max:1})
                 return output_thumbnail
@@ -89,9 +90,9 @@ def convertToHsv(image, sensor):
             hsvIn1 = 'B7'  
             hsvIn2 = 'B5'  
             hsvIn3 = 'B4'  
-            hsvIn1Correction = 6  
-            hsvIn2Correction = 6  
-            hsvIn3Correction = 6  
+            hsvIn1Correction = 1  
+            hsvIn2Correction = 1
+            hsvIn3Correction = 1  
         elif (sensor == "ETM+") | (sensor == "ETM"):  # landsat 7
             hsvIn1 = '70' 
             hsvIn2 = '40' 
@@ -128,8 +129,8 @@ def convertToHsv(image, sensor):
     except (EEException):
         return "Google Earth Engine Error: " + str(sys.exc_info())        
 
-def detectWaterBodies(hsv_output):
-    region_ac = hsv_output.expression("((b('h')<(-0.3593*b('v')+360))||(b('h')>(0.0363*b('v')+75.853))||(b('h')>(0.054*b('v')+150.04)))&&b('v')<5500")
+def detectWaterBodies(hsv_output, classMembershipExpression):
+    region_ac = hsv_output.expression(classMembershipExpression)
     region_c = hsv_output.expression("(b('h')>(-0.3593*b('v')+360))&&(b('h')<(0.0338*b('v')+195))&&(b('h')<(-0.0445*b('v')+270))&&(b('h')>(0.0366*b('v')+75.853))")
     region_a = region_ac.subtract(region_c)
 #         region_b = region_ac.not()
