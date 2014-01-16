@@ -1,8 +1,9 @@
 #!/usr/bin/env python 
-import web, json, sys, exceptions, re, datetime, urllib, select, psycopg2, ast, ee, uuid, math, cPickle, pdfkit, logging, pycas, ast, earthEngine, utilities, glob  # , cv2
+import web, json, sys, exceptions, re, datetime, urllib, select, psycopg2, ast, ee, uuid, math, cPickle, pdfkit, logging, pycas, ast, earthEngine, utilities, glob, gbif  # , cv2
 from earthEngine import GoogleEarthEngineError
 from amazon_ses import AmazonSES, EmailMessage, AmazonError
 from ee import EEException
+from gbif import GBIFServiceError
 from twilio.rest import TwilioRestClient
 from decimal import Decimal
 from psycopg2 import ProgrammingError, DataError, IntegrityError, extensions, OperationalError
@@ -21,6 +22,8 @@ urls = (
   "/help", "help",
   "/terms", "terms",
   "/manager", "manager",
+  "/admin/get_admin_functions", "get_admin_functions",
+  "/admin/populate_species_names_table", "populate_species_names_table",
   "/gee/getAPIVersion", "getAPIVersion",
   "/gee/getDatesForBB", "getDatesForBB",
   "/gee/getDatesForPoint", "getDatesForPoint",
@@ -81,7 +84,7 @@ class getservices:
             conn = dbconnect("species_appuser")
             conn.cur.callproc("utils.dopa_rest_getservices", [schemaname])
             services = conn.cur.fetchall()
-            servicesdict = [dict([('name', service[0]), ('description', getservicedescription(service[1]))]) for service in services if isValidServiceName(service[0])]
+            servicesdict = [dict([('name', service[0]), ('description', getservicedescription(service[1]))]) for service in services if isVisibleServiceName(service[0])]
             return render.getservices(schemaname, servicesdict, render.header(), render.footer())
 
         except (DopaServicesError, ProgrammingError, OperationalError):
@@ -164,10 +167,11 @@ def callservice(schemaname, servicename, querystring):
         metadataName = params.setdefault('metadataname', 'metadata')
         rootName = params.setdefault('rootname', 'records')
         parseparams = params.setdefault('parseparams', 'true')
+        sortField = params.setdefault('sortfield', '')
         isHadoop = ('true' if (servicename[-2:] == '_h') else 'false')  # if the service is a call to a hadoop method then set a flag 
 
         # remove the standard optional parameters from the dictionary so we are left with just the parameters required for the function
-        del (params['format'], params['fields'], params['includemetadata'], params['parseparams'], params['metadataname'], params['rootname'])
+        del (params['format'], params['fields'], params['includemetadata'], params['parseparams'], params['metadataname'], params['rootname'], params['sortfield'])
         if 'callback' in params.keys():
             del(params['callback'])
 
@@ -194,7 +198,7 @@ def callservice(schemaname, servicename, querystring):
             params['species_ids'] = str(hadoopData)[1:-1];
 
         # PARSE AND CONVERT THE DATA TYPES OF THE OTHER INPUT PARAMETERS
-        # get the parameters for the function from postgresql
+        # get all the parameters for the function from postgresql
         conn.cur.callproc('utils.dopa_rest_getparams', [servicename])
         # get the function parameters as a string and split this into a list, e.g. wdpa_id integer, presence_id integer[] -->  ['wdpa_id integer', ' presence_id integer[]']
         functionparams = conn.cur.fetchone()
@@ -220,17 +224,20 @@ def callservice(schemaname, servicename, querystring):
                 raise DopaServicesError('Invalid parameters: ' + ",".join(invalidparamnames))
             # put the input parameters in the right order 
             params = OrderedDict([(n, params[n]) for n in functionparamnames if n in params.keys()])
-        
+            
+        # GET THE SORT CLAUSE
+        if sortField != "":
+            sortClause = " ORDER BY " + sortField
+        else:
+            sortClause = ""
+            
         # RUN THE QUERY
         if hasparams :
-            if len(functionparams) != len(params):  # not all parameters are being passed to the function - so we need to use named parameters
-                sql = "SELECT * from " + schemaname + "." + servicename + "(" + ",".join([n + ":=%(" + n + ")s" for n in params]) + ");"  # run the query using named parameters
-    #            return 'sql: ' + sql + ' params: ' + str(params) + ' query: ' + conn.cur.mogrify(sql, params)
-                conn.cur.execute(sql, params)
-            else:
-                conn.cur.callproc(schemaname + "." + servicename, params.values())  # run the query using positional parameters
+            sql = "SELECT * from " + schemaname + "." + servicename + "(" + ",".join([n + ":=%(" + n + ")s" for n in params]) + ")" + sortClause + ";"  # run the query using named parameters
+            conn.cur.execute(sql, params)
         else:
-            conn.cur.callproc(schemaname + "." + servicename)  # run the query using positional parameters
+            sql = "SELECT * from " + schemaname + "." + servicename + "()" + sortClause + ";" # run the query using named parameters
+            conn.cur.execute(sql)  
         rows = conn.cur.fetchall()
 
         # PROCESS THE ROWS AND WRITE THEM BACK TO THE CLIENT
@@ -419,8 +426,14 @@ def isNumeric(val):
     else:
         return True
 
-def isValidServiceName(servicename):
+def isVisibleServiceName(servicename):
     if (servicename[:3] in ['get', 'set']) | (servicename[:6] in ['insert', 'delete']) | ((servicename[:4] in ['_get', '_set']) & (web.ctx.host == 'dopa-services.jrc.it')) | ((servicename[:7] in ['_insert', '_delete']) & (web.ctx.host == 'dopa-services.jrc.it')):  
+        return True
+    else:
+        return False
+
+def isValidServiceName(servicename):
+    if (servicename[:3] in ['get', 'set']) | (servicename[:6] in ['insert', 'delete']) | (servicename[:4] in ['_get', '_set']) | (servicename[:7] in ['_insert', '_delete']):  
         return True
     else:
         return False
@@ -803,6 +816,44 @@ def rgbTohsv(r, g, b):
     elif val == b:
         hue = (((r - g) / (val - minVal) * 60) + 240)
     return (hue, saturation, val)
+
+
+#===============================================   ADMINISTRATIVE FUNCTIONS  =============================================================================================================================================
     
+class get_admin_functions:  # http://dopa-services.jrc.it/services/admin/get_admin_functions
+    def GET(self):
+        web.header("Content-Type", "application/javascript") 
+        return web.input()['callback'] + '([{"name":"populate_species_names_table", "label":"Populate species names table"}])'  # return as a jsonp
+
+class populate_species_names_table:  # http://dopa-services.jrc.it/services/admin/populate_species_names_table
+    def GET(self):
+        try:
+            logging.basicConfig(filename='../../htdocs/mstmp/populate_species_names_table.log', level=logging.DEBUG, format='%(asctime)s %(levelname)s %(message)s',)
+            count = 1
+            conn = dbconnect("species_especies_schema")
+            conn.cur.execute("delete from species_names;")
+            conn.cur.execute("select id_no,friendly_n from species_distribution.speciestaxonomy where friendly_n is not null;")
+            rows = conn.cur.fetchall()
+            for row in rows:
+                IDspecies = row[0]
+                binomial = row[1]
+                try:
+                    nubkey = gbif.getNubKey(binomial)
+                    commonnames = gbif.getVernacularNames(nubkey)            
+                    if len(commonnames) > 0:
+                        for commonname in commonnames:
+                            language = commonname[0]
+                            name = commonname[1]
+                            conn.cur.execute("INSERT INTO species_names(iucn_species_id, name, language) VALUES (" + IDspecies + ",'" + name + "','" + language + "');")
+                except (GBIFServiceError):
+                    logging.error("GBIFServiceError: " + str(sys.exc_info()) + " (record " + str(count) + ")")
+                    continue
+                count = count + 1
+#                 if count > 20:
+        finally:
+            conn.close()
+            web.header("Content-Type", "application/javascript") 
+            return web.input()['callback'] + '({"status":"completed"})'  # return as a jsonp
+        
 if __name__ == "__main__":
     app.run()

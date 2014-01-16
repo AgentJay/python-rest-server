@@ -192,6 +192,12 @@ $def with (header, footer)
 					If an invalid field is requested then an 'Invalid output fields' error is returned. </td><td>all fields</td>
 				</tr>
 				<tr>
+					<td>sortfield</td><td>
+					<div class="normal">
+						The sortfield parameter specifies the field that will be used to sort the returned records. If no sortfield is specified the results are returned in the default sort order as in the database function.
+					</td><td></td>
+				</tr>
+				<tr>
 					<td>includemetadata</td><td>
 					<div class="normal">
 						The <span class='param'>includemetadata</span> parameter sets whether to include a metadata section in the response which includes summary information about the results. See the <a href="#metadata">metadata section</a> for more information.
@@ -211,7 +217,7 @@ $def with (header, footer)
 				For example, the following REST Service call includes values for all optional parameters :
 			</div>
 			<div class="code">
-				http://dopa-services.jrc.ec.europa.eu/services/especies/get_pa_species_list?wdpa_id=785&rlstatus=EN,CR&format=json&fields=iucn_species_id&includemetadata=true&parseparams=true&metadataname=md&rootname=r
+				http://dopa-services.jrc.ec.europa.eu/services/especies/get_pa_species_list?wdpa_id=785&rlstatus=EN,CR&format=json&fields=iucn_species_id&sortfield=taxon&includemetadata=true&parseparams=true&metadataname=md&rootname=r
 			</div>
 			<h4><a name="spv">Specifying parameter values</a></h4>
 			<div class="normal">

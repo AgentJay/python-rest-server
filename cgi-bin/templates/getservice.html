@@ -67,6 +67,8 @@ $def with (schemaname, servicename, servicedesc, inparams, outparams, header, fo
 					$ value = "117.1214580575966"
 				$elif (param['name'] in ['taxonomicgroup']):
 					$ value = "AVES"
+				$elif (param['name'] in ['language']):
+					$ value = "english"
 				$elif (param['name'] in ['quadkey']):
 					$ value = "132320330230021"
 				$if (param['type']=='array'):
@@ -115,6 +117,7 @@ $def with (schemaname, servicename, servicedesc, inparams, outparams, header, fo
 		<div class="endpoint"><a href='$(prefix)format=xml' target='__examplecall' title="Example call" class="example">$(prefix)format=xml</a></div>
 		<div class="endpoint"><a href='$(prefix)format=array&includemetadata=false' target='__examplecall' title="Example call" class="example">$(prefix)format=array&includemetadata=false</a></div>
 		$if (len(outparams)>0):
+			<div class="endpoint"><a href='$(prefix)format=pdf&sortfield=$outparams[0]['name']' target='__examplecall' title="Example call" class="example">$(prefix)format=pdf&sortfield=$outparams[0]['name']</a></div>
 			<div class="endpoint"><a href='$(prefix)format=json&fields=$outparams[0]['name']' target='__examplecall' title="Example call" class="example">$(prefix)format=json&fields=$outparams[0]['name']</a></div>
 
 		<!--Excel endpoint-->
