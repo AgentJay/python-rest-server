@@ -227,7 +227,7 @@ def callservice(schemaname, servicename, querystring):
             
         # GET THE SORT CLAUSE
         if sortField != "":
-            sortClause = " ORDER BY " + sortField
+            sortClause = ' ORDER BY "' + sortField + '"'
         else:
             sortClause = ""
             

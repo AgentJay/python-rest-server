@@ -65,10 +65,12 @@ $def with (schemaname, servicename, servicedesc, inparams, outparams, header, fo
 					$ value = "4.7374874801628"
 				$elif (param['name'] in ['longitude']):
 					$ value = "117.1214580575966"
-				$elif (param['name'] in ['taxonomicgroup']):
-					$ value = "AVES"
-				$elif (param['name'] in ['language']):
+				$elif (param['name'] in ['taxongroup']):
+					$ value = "aves"
+				$elif (param['name'] in ['language2']):
 					$ value = "english"
+				$elif (param['name'] in ['language1']):
+					$ value = "french"
 				$elif (param['name'] in ['quadkey']):
 					$ value = "132320330230021"
 				$if (param['type']=='array'):

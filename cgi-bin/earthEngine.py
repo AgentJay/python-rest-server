@@ -49,8 +49,8 @@ def getSceneImage(sceneid, ll_x, ll_y, ur_x, ur_y, crs, width, height, layerPara
                 hsv_output = convertToHsv(scene, sensor)  # convert to hsv
                 layerParameters.setdefault("classMembershipExpression", "((b('h')>(0.12*b('v'))-600)&&(b('h')<=120)&&(b('h')>=0))||((b('h')>(0.02*b('v'))+0)&&(b('h')<=180)&&(b('h')>=120))||((b('h')>(0.00625*b('v'))+123.75)&&(b('h')<=230)&&(b('h')>=180))||((b('h')>(0.13*b('v'))-1980)&&(b('h')<=360)&&(b('h')>=230))")
                 water = detectWaterBodies(hsv_output, layerParameters['classMembershipExpression'])  # detect the water
-                water_mask = water.mask(water.select('area_ac'))  # create the mask
-                output_thumbnail = water_mask.getThumbUrl({'bands': 'area_ac', 'size': width + 'x' + height , 'region': region, 'palette':'0000ff', min:0, max:1})
+                water_mask = scene.mask(water.select('area_ac'))  # create the mask
+                output_thumbnail = water_mask.getThumbUrl({'bands': bands, 'size': width + 'x' + height , 'min': layerParameters['min'], 'max': layerParameters['max'], 'region': region})
                 return output_thumbnail
         else:
             output_thumbnail = scene.getThumbUrl({'bands': bands, 'size': width + 'x' + height , 'min': layerParameters['min'], 'max': layerParameters['max'], 'region': region})
