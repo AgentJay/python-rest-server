@@ -44,11 +44,11 @@ def getSceneImage(sceneid, ll_x, ll_y, ur_x, ur_y, crs, width, height, layerPara
             output_thumbnail = scene.getThumbUrl({'bands': 'h,s,v', 'size': width + 'x' + height , 'region': region, 'gain':'0.8,300,0.01', })
             return output_thumbnail
         # FINAL STEP IS THE DETECTION PROCESS
-        if 'detectWater' in layerParameters.keys():
-            if layerParameters['detectWater']:
+        if 'hsvDetect' in layerParameters.keys():
+            if layerParameters['hsvDetect']:
                 hsv_output = convertToHsv(scene, sensor)  # convert to hsv
-                layerParameters.setdefault("classMembershipExpression", "((b('h')>(0.12*b('v'))-600)&&(b('h')<=120)&&(b('h')>=0))||((b('h')>(0.02*b('v'))+0)&&(b('h')<=180)&&(b('h')>=120))||((b('h')>(0.00625*b('v'))+123.75)&&(b('h')<=230)&&(b('h')>=180))||((b('h')>(0.13*b('v'))-1980)&&(b('h')<=360)&&(b('h')>=230))")
-                water = detectWaterBodies(hsv_output, layerParameters['classMembershipExpression'])  # detect the water
+                layerParameters.setdefault("detectExpression", "((b('h')>(0.12*b('v'))-600)&&(b('h')<=120)&&(b('h')>=0))||((b('h')>(0.02*b('v'))+0)&&(b('h')<=180)&&(b('h')>=120))||((b('h')>(0.00625*b('v'))+123.75)&&(b('h')<=230)&&(b('h')>=180))||((b('h')>(0.13*b('v'))-1980)&&(b('h')<=360)&&(b('h')>=230))")
+                water = hsvDetect(hsv_output, layerParameters['detectExpression'])  # detect the water
                 water_mask = scene.mask(water.select('area_ac'))  # create the mask
                 output_thumbnail = water_mask.getThumbUrl({'bands': bands, 'size': width + 'x' + height , 'min': layerParameters['min'], 'max': layerParameters['max'], 'region': region})
                 return output_thumbnail
@@ -129,12 +129,12 @@ def convertToHsv(image, sensor):
     except (EEException):
         return "Google Earth Engine Error: " + str(sys.exc_info())        
 
-def detectWaterBodies(hsv_output, classMembershipExpression):
-    region_ac = hsv_output.expression(classMembershipExpression)
-    region_c = hsv_output.expression("(b('h')>(-0.3593*b('v')+360))&&(b('h')<(0.0338*b('v')+195))&&(b('h')<(-0.0445*b('v')+270))&&(b('h')>(0.0366*b('v')+75.853))")
-    region_a = region_ac.subtract(region_c)
+def hsvDetect(hsv_output, detectExpression):
+    region_ac = hsv_output.expression(detectExpression)
+#     region_c = hsv_output.expression("(b('h')>(-0.3593*b('v')+360))&&(b('h')<(0.0338*b('v')+195))&&(b('h')<(-0.0445*b('v')+270))&&(b('h')>(0.0366*b('v')+75.853))")
+#     region_a = region_ac.subtract(region_c)
 #         region_b = region_ac.not()
-    return ee.Image([region_a.select(['h'], ['area_a']), region_ac.select(['h'], ['area_ac']), region_c.select(['h'], ['area_c'])])
+    return ee.Image([region_ac.select(['h'], ['area_ac']), region_ac.select(['h'], ['area_ac']), region_ac.select(['h'], ['area_ac'])])
 
 def getDatesForBB(ll_x, ll_y, ur_x, ur_y, crs):
     try:
@@ -178,10 +178,12 @@ def getValuesForPoint(sceneid, x, y, crs):
         scene = ee.Image(sceneid)
         collection = ee.ImageCollection(scene)
         data = collection.getRegion(ee.Geometry.Point(lng, lat), 30).getInfo()
+        if len(data) == 1:
+            raise GoogleEarthEngineError("No values for point x:" + str(x) + " y: " + str(y) + " for sceneid: " + sceneid)
         return OrderedDict([(data[0][i], data[1][i]) for i in range (len(data[0]))])
     
-    except ():
-        return "DOPA Services Error: " + str(sys.exc_info())        
+    except (EEException, GoogleEarthEngineError):
+        return "Google Earth Engine Error: " + str(sys.exc_info())        
 
 def getValuesForPoints(sceneid, pointsArray):  # points are as a [[117.49949,5.50077],[117.50005,5.50074]]
     try:
@@ -192,7 +194,7 @@ def getValuesForPoints(sceneid, pointsArray):  # points are as a [[117.49949,5.5
         data = collection.getRegion(multipoint, 30).getInfo()
         return data
     
-    except (EEException):
+    except (EEException, GoogleEarthEngineError):
         return "Google Earth Engine Error: " + str(sys.exc_info())        
 
 def getBoundingBoxLL(ll_x, ll_y, ur_x, ur_y, crs):  # gets a lat/long bounding box suitable for sending to the Google Earth Engine API

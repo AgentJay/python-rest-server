@@ -186,7 +186,7 @@ $def with (header, footer)
 					</ul> If an invalid value is used then an 'Invalid response format' error is returned. </td><td>json</td>
 				</tr>
 				<tr>
-					<td>fields</td><td>The <span class='param'>fields</span> parameter is used to determine the fields that are returned and is encoded as an array - these must be one or more of the output parameters listed further down in the service description.
+					<td>fields</td><td>The <span class='param'>fields</span> parameter is used to determine the fields that are returned and is encoded as a comma-separated list of field names. These field names must match one or more of the output parameters listed in the service description. The fields parameter also determines the order in which the output fields are returned.
 					<br>
 					<br>
 					If an invalid field is requested then an 'Invalid output fields' error is returned. </td><td>all fields</td>
@@ -194,7 +194,10 @@ $def with (header, footer)
 				<tr>
 					<td>sortfield</td><td>
 					<div class="normal">
-						The sortfield parameter specifies the field that will be used to sort the returned records. If no sortfield is specified the results are returned in the default sort order as in the database function.
+						The sortfield parameter specifies the field that will be used to sort the returned records. If no sortfield is specified the results are returned in the default sort order as specified in the database function.
+					<br>
+					<br>
+					If an invalid sortfield is requested then an 'Invalid sortfield' error is returned. 
 					</td><td></td>
 				</tr>
 				<tr>

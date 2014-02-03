@@ -231,12 +231,18 @@ def callservice(schemaname, servicename, querystring):
         else:
             sortClause = ""
             
+        # GET THE FIELDS CLAUSE
+        if fields != ['']:
+            fieldsClause = ",".join(fields)
+        else:
+            fieldsClause = "*"
+        
         # RUN THE QUERY
         if hasparams :
-            sql = "SELECT * from " + schemaname + "." + servicename + "(" + ",".join([n + ":=%(" + n + ")s" for n in params]) + ")" + sortClause + ";"  # run the query using named parameters
+            sql = "SELECT " + fieldsClause + " from " + schemaname + "." + servicename + "(" + ",".join([n + ":=%(" + n + ")s" for n in params]) + ")" + sortClause + ";"  # run the query using named parameters
             conn.cur.execute(sql, params)
         else:
-            sql = "SELECT * from " + schemaname + "." + servicename + "()" + sortClause + ";" # run the query using named parameters
+            sql = "SELECT * from " + schemaname + "." + servicename + "()" + sortClause + ";" 
             conn.cur.execute(sql)  
         rows = conn.cur.fetchall()
 
@@ -246,9 +252,8 @@ def callservice(schemaname, servicename, querystring):
         
         # METADATA SECTION OF RESPONSE
         allfields = [d.name for d in conn.cur.description]
-        fieldcount = len(allfields)
         if (fields == ['']): fields = allfields 
-#        return conn.cur.description
+        fieldcount = len(fields)
         fieldsdict = [dict([("name", d.name), ("type", gettypefromtypecode(d.type_code))]) for d in conn.cur.description if (d.name in fields)]
         if len(fieldsdict) != len(fields):
             raise DopaServicesError('Invalid output fields')
@@ -262,7 +267,6 @@ def callservice(schemaname, servicename, querystring):
             else:
                 recordsdict = [[row[col] for col in range(fieldcount) if (col in colsRequired)] for row in rows]
             json.encoder.FLOAT_REPR = lambda f: ("%.14f" % f)  # this specifies how many decimal places are returned in the json with float values - currently set to 14 - good enough for returning lat/long coordinates
-#             return rows,recordsdict
             if (includemetadata.lower() == 'true'):
                 responsejson = json.dumps(dict([(metadataName, metadatadict), (rootName, recordsdict)]), indent=1, cls=CustomJSONEncoder)
             else: 
@@ -336,6 +340,9 @@ def callservice(schemaname, servicename, querystring):
         t2 = datetime.datetime.now()
         msg = "There was an error sending the email. Make sure that the email address has been verified in Amazon Simple Email Services" if type(e) == AmazonError else str(sys.exc_info()).decode('string_escape')
         logging.error(msg + "\n")
+        if type(e) == ProgrammingError:
+            if ("ORDER BY" in e.message) & ("does not exist" in e.message):
+                msg = "Invalid sortfield parameter: " + sortField
         if format in ['json', 'array']:
             metadatadict = OrderedDict([("duration", str(t2 - t1)), ("error", msg), ("idProperty", None), ("successProperty", 'success'), ("totalProperty", 'recordCount'), ("success", False), ("recordCount", 0), ("root", None), ("fields", None)])    
             responsejson = json.dumps(dict([(metadataName, metadatadict), (rootName, None)]), indent=1)
@@ -581,7 +588,7 @@ class gee_WMS_sequence():  # http://dopa-services.jrc.it/services/gee/WMS_sequen
         try:
             x, y = web.input()['POINT'].split(",")
             scenes = earthEngine.getScenesForPoint(web.input()['collection'], x, y, web.input()['CRS'])
-            layerParameters = {"detectWater":True}
+            layerParameters = {"hsvDetect":True}
             for scene in scenes['features']:
                 sceneid = scene['id']
                 ll_x = scene['properties']['CORNER_LL_LON_PRODUCT']
