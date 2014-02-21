@@ -1,9 +1,8 @@
+# Python module that wraps all of the Google Earth Engine functionality. This class returns all results as dictionaries either for internal Python use or for returning in other formats to the web
 import sys, ee, cPickle, utilities, math, datetime
 from dbconnect import google_earth_engine
 from orderedDict import OrderedDict
 from ee import EEException
-
-# Internal Google Earth Engine Class that returns all results as dictionaries either for internal Python use or for returning in other formats to the web
 
 class GoogleEarthEngineError(Exception):
     """Exception Class that allows the DOPA Services REST Server to raise custom exceptions"""
@@ -166,6 +165,10 @@ def getScenesForPoint(collection, x, y, crs):
         # points dont work with GEE, so we have to create a small polygon
         small_query_polygon = [[[lng - 0.00001, lat + 0.00001], [lng - 0.00001, lat - 0.00001], [lng + 0.00001, lat - 0.00001], [lng + 0.00001, lat + 0.00001], [lng - 0.00001, lat + 0.00001]]]
         scenes = ee.ImageCollection(collection).filterBounds(ee.Feature.Polygon(small_query_polygon)).getInfo()  # LANDSAT/LC8_L1T is USGS Landsat 8 Raw Scenes (Orthorectified)
+        # Landsat image ids are LANDSAT/LC8_L1T/LC81970502014029LGN00 whereas Landsat TOA are LC8_L1T_TOA/LC81970502014029LGN00 without the Landsat - so add this in
+        if collection[-3:] == "TOA":
+            for scene in scenes['features']:
+                scene['id'] = "LANDSAT/" + scene['id']
         return scenes
 
     except (EEException):

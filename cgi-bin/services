@@ -1,5 +1,5 @@
 #!/usr/bin/env python 
-import web, json, sys, exceptions, re, datetime, urllib, select, psycopg2, ast, ee, uuid, math, cPickle, pdfkit, logging, pycas, ast, earthEngine, utilities, glob, gbif  # , cv2
+import web, json, sys, exceptions, re, datetime, urllib, select, psycopg2, ast, ee, uuid, math, cPickle, pdfkit, logging, pycas, ast, earthEngine, utilities, glob, gbif, cairosvg  # , cv2
 from earthEngine import GoogleEarthEngineError
 from amazon_ses import AmazonSES, EmailMessage, AmazonError
 from ee import EEException
@@ -39,6 +39,7 @@ urls = (
   "/endSession", "endSession",
   "/ecasLogin", "ecasLogin",
   "/ecasLogout", "ecasLogout",
+  "/svg2png", "svg2png",
   "/(.+)/(.+)", "getservice",
   "/(.+)/", "getservices",
   "/", "getschemas"
@@ -510,6 +511,23 @@ class ecasLogout():  # redirects to the ecas logout page to end an ECAS session
         web.redirect(CAS_SERVER + "/cas/logout") 
 
 
+#===============================================   SVG CONVERSION ROUTINES =============================================================================================================================================
+
+class svg2png:
+    def POST(self):
+        svg = web.data()
+        filename = str(uuid.uuid4()) + ".png"
+        cairosvg.svg2png (svg , write_to='../../htdocs/mstmp/' + filename)
+        if (web.ctx.host== "dopa-services.jrc.it"):
+            domain = "lrm-maps.jrc.it/"
+        else:
+            domain = "lrm-maps.jrc.ec.europa.eu/"
+        url = "http://" + domain + "/mstmp/" + filename
+        return url
+
+#===============================================   END OF SVG CONVERSION ROUTINES =============================================================================================================================================
+
+
 #===============================================   GOOGLE EARTH ENGINE SERVER =============================================================================================================================================
 
 class getAPIVersion:
@@ -629,10 +647,15 @@ class createValidationSites:  # http://dopa-services.jrc.it/services/gee/createV
             username = params['username']
             scenedate = params['scenedate']
             sceneid = params['sceneid']
-            if sceneid[:11] == "LANDSAT/LC8":
+            s = sceneid[sceneid.find('/') + 1:sceneid.find('/') + 3]
+            if s == "LC":
                 sensor = "Landsat 8"
-            else:
+            elif s == "L5":
+                sensor = "Landsat 5"
+                raise DopaServicesError('Creating validation sites is currently not implemented for Landsat 5') 
+            elif s == "L7":
                 sensor = "Landsat 7"
+                raise DopaServicesError('Creating validation sites is currently not implemented for Landsat 7') 
             # GET THE POINTS
             sitesArray = ast.literal_eval(params['draftSites'])  # the the array of draft sites
             lc = [item[2] for item in sitesArray]  # get the land cover types from the array
@@ -647,8 +670,8 @@ class createValidationSites:  # http://dopa-services.jrc.it/services/gee/createV
             for i in range(len(data[1:])):  # create the VALUES (''),('') statement
                 values = values + "('" + lc[i] + "'," + str(fieldValues[i][2]) + "," + str(fieldValues[i][1]) + ",'" + sensor + "','" + sceneid + "','" + scenedate + "'"
                 for j in range(len(fields[4:])):  # iterate through the bands pixel values to write the string
-                    values = values + "," + str(int(fieldValues[i][j + 4]))
-                h, s, v = rgbTohsv(int(fieldValues[i][10]), int(fieldValues[i][8]), int(fieldValues[i][7]))  # bands B7, B5, B4 for Landsat 8
+                    values = values + "," + str(fieldValues[i][j + 4])
+                h, s, v = rgbTohsv(fieldValues[i][10], fieldValues[i][8], fieldValues[i][7])  # bands B7, B5, B4 for Landsat 8
                 values = values + ",'" + username + "','" + str(datetime.datetime.now()) + "'," + str(h) + "," + str(s) + "," + str(v) + "),"
             sql = insertinto + values[:-1]
             conn = dbconnect("species_especies_schema")
