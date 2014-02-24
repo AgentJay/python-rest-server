@@ -592,7 +592,6 @@ class gee_WMS_scene:  # single landsat scene created from a Google Earth Engine 
             layerParameters.setdefault("min", 7000)
             layerParameters.setdefault("max", 14000)
             # GET THE IMAGE THUMBNAIL 
-            return layerParameters['detectExpression']
             output_thumbnail = earthEngine.getSceneImage(layerParameters['sceneid'], ll_x, ll_y, ur_x, ur_y, wmsParameters.crs, wmsParameters.width, wmsParameters.height, layerParameters)
             # RETURN A LINK TO THE THUMBNAIL 
             return returnThumbnailJSON(output_thumbnail)

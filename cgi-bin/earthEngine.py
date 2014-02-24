@@ -44,11 +44,13 @@ def getSceneImage(sceneid, ll_x, ll_y, ur_x, ur_y, crs, width, height, layerPara
             return output_thumbnail
         # FINAL STEP IS THE DETECTION PROCESS IF ANY
         if 'detectExpression' in layerParameters.keys():
-            hsv_output = convertToHsv(scene, sensor)  # convert to hsv
-#                 layerParameters.setdefault("detectExpression", "((b('h')>(0.12*b('v'))-600)&&(b('h')<=120)&&(b('h')>=0))||((b('h')>(0.02*b('v'))+0)&&(b('h')<=180)&&(b('h')>=120))||((b('h')>(0.00625*b('v'))+123.75)&&(b('h')<=230)&&(b('h')>=180))||((b('h')>(0.13*b('v'))-1980)&&(b('h')<=360)&&(b('h')>=230))")
-            water = hsvDetect(hsv_output, layerParameters['detectExpression'])  # detect the water
-            water_mask = scene.mask(water.select('area_ac'))  # create the mask
-            output_thumbnail = water_mask.getThumbUrl({'bands': bands, 'size': width + 'x' + height , 'min': layerParameters['min'], 'max': layerParameters['max'], 'region': region})
+            if "b('h')" in layerParameters['detectExpression']:
+                detectionInput = convertToHsv(scene, sensor)  # convert to hsv
+            else:
+                detectionInput = scene
+            booleanClass = detectionInput.expression(layerParameters['detectExpression'])  # detect the class
+            mask = scene.mask(booleanClass)  # create the mask
+            output_thumbnail = mask.getThumbUrl({'bands': bands, 'size': width + 'x' + height , 'min': layerParameters['min'], 'max': layerParameters['max'], 'region': region})
             return output_thumbnail
         else:
             output_thumbnail = scene.getThumbUrl({'bands': bands, 'size': width + 'x' + height , 'min': layerParameters['min'], 'max': layerParameters['max'], 'region': region})
@@ -126,13 +128,6 @@ def convertToHsv(image, sensor):
 
     except (EEException):
         return "Google Earth Engine Error: " + str(sys.exc_info())        
-
-def hsvDetect(hsv_output, detectExpression):
-    region_ac = hsv_output.expression(detectExpression)
-#     region_c = hsv_output.expression("(b('h')>(-0.3593*b('v')+360))&&(b('h')<(0.0338*b('v')+195))&&(b('h')<(-0.0445*b('v')+270))&&(b('h')>(0.0366*b('v')+75.853))")
-#     region_a = region_ac.subtract(region_c)
-#         region_b = region_ac.not()
-    return ee.Image([region_ac.select(['h'], ['area_ac']), region_ac.select(['h'], ['area_ac']), region_ac.select(['h'], ['area_ac'])])
 
 def getDatesForBB(ll_x, ll_y, ur_x, ur_y, crs):
     try:
