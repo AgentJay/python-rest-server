@@ -374,7 +374,7 @@ class help:
         return render.help(render.header(), render.footer())
 
 class terms:
-    def GET(self): 
+    def GET(self):
         render = web.template.render('templates/')
         return render.terms(render.header(), render.footer()) 
       
@@ -387,8 +387,7 @@ class createDownloadFile():
             webDataDict[kv[0]] = kv[1]
         filename = webDataDict['filename']
         algorithm = webDataDict['algorithm']
-        filename = '../../htdocs/mstmp/' + filename
-        f = open(filename, 'wb')
+        f = open(r'../../htdocs/mstmp/' + filename, 'wb')
         f.write(urllib.unquote(algorithm))
         f.close()
         return filename
