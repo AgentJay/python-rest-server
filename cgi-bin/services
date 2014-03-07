@@ -22,6 +22,7 @@ urls = (
   "/help", "help",
   "/terms", "terms",
   "/manager", "manager",
+  "/downloadFile", "downloadFile",
   "/admin/get_admin_functions", "get_admin_functions",
   "/admin/populate_species_names_table", "populate_species_names_table",
   "/gee/getAPIVersion", "getAPIVersion",
@@ -375,6 +376,14 @@ class terms:
     def GET(self):
         render = web.template.render('templates/')
         return render.terms(render.header(), render.footer())
+    
+class downloadFile():
+    def GET(self):
+        filename = web.input()['filename'] + ".txt"
+        algorithm = web.input()['algorithm']
+        web.header("Content-Type", "text/plain")
+        web.header("Content-Disposition", "attachment; filename=%s" % filename)
+        return algorithm
 
 #=====================  CALL SERVICE HELPER FUNCTIONS  ==================================================================================================================================================================================================================
             
@@ -518,7 +527,7 @@ class svg2png:
         svg = web.data()
         filename = str(uuid.uuid4()) + ".png"
         cairosvg.svg2png (svg , write_to='../../htdocs/mstmp/' + filename)
-        if (web.ctx.host== "dopa-services.jrc.it"):
+        if (web.ctx.host == "dopa-services.jrc.it"):
             domain = "lrm-maps.jrc.it/"
         else:
             domain = "lrm-maps.jrc.ec.europa.eu/"

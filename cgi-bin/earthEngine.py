@@ -199,6 +199,15 @@ def getBoundingBoxLL(ll_x, ll_y, ur_x, ur_y, crs):  # gets a lat/long bounding b
         ur_long, ur_lat = utilities.getPointLL(ur_x, ur_y, crs)
         return [[ll_long, ur_lat], [ll_long, ll_lat], [ur_long, ll_lat], [ur_long, ur_lat]]  # get the area of interest
 
+def getDateTimeForScene(sceneid):
+    try:
+        authenticate()
+        scene = ee.Image(sceneid)
+        return scene.getInfo()['properties']['DATE_ACQUIRED'] + ' ' + scene.getInfo()['properties']['SCENE_CENTER_TIME'][:8]
+    
+    except (EEException, GoogleEarthEngineError):
+        return "Google Earth Engine Error: " + str(sys.exc_info())        
+
 def dateToDateTime(_date):  # converts a Google date into a Python datetime, e.g. 2013-06-14 to datetime.datetime(2013, 5, 2, 0, 0))
     d = _date.split("-")
     return datetime.datetime(int(d[0]), int(d[1]), int(d[2]))
