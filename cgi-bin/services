@@ -22,6 +22,7 @@ urls = (
   "/help", "help",
   "/terms", "terms",
   "/manager", "manager",
+  "/createDownloadFile", "createDownloadFile",
   "/downloadFile", "downloadFile",
   "/admin/get_admin_functions", "get_admin_functions",
   "/admin/populate_species_names_table", "populate_species_names_table",
@@ -375,12 +376,28 @@ class help:
 class terms:
     def GET(self):
         render = web.template.render('templates/')
-        return render.terms(render.header(), render.footer())
+        return render.terms(render.header(), render.footer()) 
+      
+class createDownloadFile():
+    def POST(self):
+        webDataDict = dict()
+        webData = web.data().split("&")
+        for item in webData:
+            kv = item.split("=")
+            webDataDict[kv[0]] = kv[1]
+        filename = webDataDict['filename']
+        algorithm = webDataDict['algorithm']
+        f = open(r'../../htdocs/mstmp/' + filename, 'wb')
+        f.write(urllib.unquote(algorithm))
+        f.close()
+        return filename
     
 class downloadFile():
     def GET(self):
-        filename = web.input()['filename'] + ".txt"
-        algorithm = web.input()['algorithm']
+        filename = web.input()['filename']
+        f = open(r'../../htdocs/mstmp/' + filename, 'r')
+        algorithm = f.read()
+        f.close()
         web.header("Content-Type", "text/plain")
         web.header("Content-Disposition", "attachment; filename=%s" % filename)
         return algorithm
