@@ -24,6 +24,7 @@ urls = (
   "/manager", "manager",
   "/createDownloadFile", "createDownloadFile",
   "/downloadFile", "downloadFile",
+  "/updatehsv", "updatehsv",
   "/admin/get_admin_functions", "get_admin_functions",
   "/admin/populate_species_names_table", "populate_species_names_table",
   "/gee/getAPIVersion", "getAPIVersion",
@@ -40,6 +41,7 @@ urls = (
   "/gee/WMS_video", "gee_WMS_video",
   "/endSession", "endSession",
   "/ecasLogin", "ecasLogin",
+  "/ecasProxyLogin", "ecasProxyLogin",
   "/ecasLogout", "ecasLogout",
   "/svg2png", "svg2png",
   "/(.+)/(.+)", "getservice",
@@ -183,11 +185,11 @@ def callservice(schemaname, servicename, querystring):
             raise DopaServicesError('Invalid servicename')
         
         # authorise with ecas if needed
-#         if requiresAuthentication(servicename):
-#             if isAuthenticated() == False:
-#                 web.ctx.status = '401 Unauthorized'
-#                 web.header("Content-Type", "text/html")
-#                 return "<html><head></html><body><h1>Authentication required</h1></body></html>"                   
+        if requiresAuthentication(servicename):
+            if isAuthenticated() == False:
+                web.ctx.status = '401 Unauthorized'
+                web.header("Content-Type", "text/html")
+                return "<html><head></html><body><h1>Authentication required</h1></body></html>"
 
         # connect to the database to get the data
         conn = dbconnect("species_especies_schema")
@@ -402,6 +404,14 @@ class downloadFile():
         web.header("Content-Disposition", "attachment; filename=%s" % filename)
         return algorithm
 
+
+class updatehsv():
+    def GET(self):
+        hsv = web.input()['hsv']
+        conn = dbconnect("species_especies_schema")
+        conn.cur.execute("UPDATE especies.gee_training_data SET  hue = (gethsv(band" + hsv[0] + ",band" + hsv[1] + ",band" + hsv[2] + ")).hue")
+        return "Done"
+
 #=====================  CALL SERVICE HELPER FUNCTIONS  ==================================================================================================================================================================================================================
             
 def getQueryStringParams(querystring):
@@ -504,6 +514,8 @@ def isAuthenticated():
     if cookie == None:
         return False
     else:
+        if "loggedin" not in session.keys():
+            return False
         if session.loggedin == False:
             return False
         username = session.username
@@ -516,7 +528,7 @@ class ecasLogin:  # logs into ECAS and sets the session variables
             session.loggedin = True
             session.username = cookie[cookie.rfind(':') + 1:cookie.find(';')]
             session.ip = web.ctx.ip
-            return "ECAS authentication successful (webpy session_id: " + session.session_id + ", username: " + session.username + ")" 
+            return "ECAS authentication successful (webpy session_id: " + session.session_id + ", username: " + session.username + ", ip: " + session.ip + ")" 
         if status == 1:
             return "ECAS cookie exceeded its lifetime"
         if status == 2:
@@ -526,11 +538,39 @@ class ecasLogin:  # logs into ECAS and sets the session variables
         if status == 4:
             return "ECAS server returned without ticket while in gateway mode"
 
+class ecasProxyLogin:  # proxy logs into ECAS and sets the session variables
+    def GET(self):
+        service_url = web.ctx.home + web.ctx.path
+        cas_url = CAS_SERVER + "/cas/login?service=" + service_url
+        if opt in ("renew", "gateway"):
+            cas_url += "&%s=true" % opt
+        #  Print redirect page to browser
+        print "Refresh: 0; url=%s" % cas_url
+        print "Content-type: text/html"
+        if opt == "gateway":
+            domain, path = urlparse.urlparse(service_url)[1:3]
+            print make_pycas_cookie("gateway", domain, path, secure)
+        print """
+    If your browser does not redirect you, then please follow <a href="%s">this link</a>.
+    """ % (cas_url)
+        raise SystemExit
+        response = urllib.urlopen(CAS_SERVER + "/cas/login?service=" + serviceurl)
+        return response
+        status, id, cookie = pycas.login(CAS_SERVER, serviceurl)
+        if status == 0:
+            session.loggedin = True
+            session.username = cookie[cookie.rfind(':') + 1:cookie.find(';')]
+            session.ip = web.ctx.ip
+            ticket = web.ctx.query[1:].split("=")[1]
+            response = urllib.urlopen(CAS_SERVER + "/serviceValidate?ticket=" + ticket + "&service=" + serviceurl + "&pgtUrl=https://foo.bar.com/pgtCallback")
+            return response
+            return "ECAS authentication successful (webpy session_id: " + session.session_id + ", username: " + session.username + ", ip: " + session.ip + ")" 
+
 class endSession:  # ends the session and logs out
     def GET(self):
         session.loggedin = False
         session.kill()
-        return "Webpy session " + session.session_id + " ended"
+        return "webpy session_id: " + session.session_id + " ended"
     
 class ecasLogout():  # redirects to the ecas logout page to end an ECAS session
     def GET(self):
