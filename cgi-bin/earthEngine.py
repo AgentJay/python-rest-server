@@ -8,6 +8,9 @@ class GoogleEarthEngineError(Exception):
     """Exception Class that allows the DOPA Services REST Server to raise custom exceptions"""
     pass  
 
+def getWater(sceneid):
+    return 'wibble'
+
 def getSceneImage(sceneid, ll_x, ll_y, ur_x, ur_y, crs, width, height, layerParameters):
     try:
         authenticate()
