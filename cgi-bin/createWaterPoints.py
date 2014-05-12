@@ -3,6 +3,7 @@ import sys, json, datetime, math, psycopg2, ee, earthEngine, urllib, random
 from pyproj import Proj
 from pyproj import transform
 from dbconnect import dbconnect
+from ee.ee_exception import EEException 
 earthEngine.authenticate() 
 startDate = datetime.datetime(2013, 10, 25)
 endDate = datetime.datetime(2013, 11, 11)
@@ -149,7 +150,7 @@ def getScenesForPoint(collection, x, y, crs):
 conn = dbconnect("species_especies_schema")
 conn.cur.execute("delete from gee_validated_sites;")
 sql = "SELECT DISTINCT landsat_wrs2.path,  landsat_wrs2.row,  st_x(st_centroid(landsat_wrs2.geom)),  st_y(st_centroid(landsat_wrs2.geom)), l8_toa_scene_count, l8_toa_cloud_stats FROM especies.landsat_wrs2 WHERE l8_toa_scene_count>0 ORDER BY 1,2;"
-# sql = "SELECT DISTINCT landsat_wrs2.path,  landsat_wrs2.row,  st_x(st_centroid(landsat_wrs2.geom)),  st_y(st_centroid(landsat_wrs2.geom)), l8_toa_scene_count, l8_toa_cloud_stats FROM especies.landsat_wrs2 WHERE l8_toa_scene_count>0 AND path=197 and row>49 ORDER BY 1,2;"
+# sql = "SELECT DISTINCT landsat_wrs2.path,  landsat_wrs2.row,  st_x(st_centroid(landsat_wrs2.geom)),  st_y(st_centroid(landsat_wrs2.geom)), l8_toa_scene_count, l8_toa_cloud_stats FROM especies.landsat_wrs2 WHERE l8_toa_scene_count>0 AND path=197 and row=50 ORDER BY 1,2;"
 conn.cur.execute(sql)
 print "Creating random water validation sites..\n"
 pathRows = conn.cur.fetchall()
@@ -161,7 +162,7 @@ for pathRow in pathRows:
     lat = pathRow[3]
     sceneCount = pathRow[4]
     cloudStats = pathRow[5]
-    print "Getting scenes for " + " long: " + str(lng) + " lat: " + str(lat) + ".."
+    print "Getting scenes for " + "long: " + str(lng) + " lat: " + str(lat) + ".."
     scenes = getScenesForPoint(collectionid, lng, lat, 'EPSG:4326')
     mincloud = 100
     mincloudid = ''
@@ -191,6 +192,18 @@ for pathRow in pathRows:
         landsat_mask = getMasks(landsat)
         # 4. DETECT WATER BODIES
         water_landsat = detectWaterBodies()
+        coords = scene.getInfo()['properties']['system:footprint']['coordinates']
+        minx = coords[1][0]
+        maxx = coords[3][0]
+        miny = coords[2][1]
+        maxy = coords[0][1]
+        bbox2 = [[minx, miny], [maxx, miny], [maxx, maxy], [minx, maxy]]
+        thumbnail = water_landsat.getThumbUrl({
+        'size': '1000',
+        'region': bbox2,
+        'palette': '0000ff'
+        })
+        print "Water image: " + thumbnail
     #    THE FOLLOWING SECTION USED A VECTORISATION OF THE WATER TO THEN SELECT RANDOM POINTS WITHIN EXCEPT THAT IT KEPT TIMING OUT - SO WE WILL GET RANDOM POINTS FOR THE SCENE AND SELECT THOSE THAT ARE WITHIN THE WATER
     #     try:
     #         fc = water_landsat.reduceToVectors(None, bbox, 500, 'polygon', False, None, None, None, False, 60000000)
@@ -200,12 +213,16 @@ for pathRow in pathRows:
     #     random_points_quantised = landsat_collection.getRegion(random_points, 30).getInfo()
     #     for point in random_points_quantised:
     #         if point[0]!='id':
-    #             print 'long: ' + str(point[1]) + ' lat: ' + str(point[2]) 
-        print "Getting random points in bbox " + str(bbox['coordinates']) + ".."
-        random_points = ee.FeatureCollection.randomPoints(bbox, SCENE_RANDOM_POINT_COUNT)
-        print "Getting lat/longs for random points.."
-        random_points_quantised = ee.ImageCollection(water_landsat).getRegion(random_points, 30).getInfo()
-        print "Getting random points which have been classified as water.."
+    #             print 'long: ' + str(point[1]) + ' lat: ' + str(point[2])
+        try: 
+            print "Getting random points in bbox " + str(bbox['coordinates']) + ".."
+            random_points = ee.FeatureCollection.randomPoints(bbox, SCENE_RANDOM_POINT_COUNT)
+            print "Getting lat/longs for random points.."
+            random_points_quantised = ee.ImageCollection(water_landsat).getRegion(random_points, 30).getInfo()
+            print "Getting random points which have been classified as water.."
+        except (EEException) as e:
+            print e.message
+            pass
         if len(random_points_quantised)>1:
             for point in random_points_quantised:
                 if point[0] != 'id':
@@ -216,4 +233,4 @@ for pathRow in pathRows:
             print "No points classified as water"
         print "\n"
     else:
-        print "No scenes found" 
+        print "No scenes found\n" 

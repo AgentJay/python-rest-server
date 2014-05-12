@@ -185,11 +185,11 @@ def callservice(schemaname, servicename, querystring):
             raise DopaServicesError('Invalid servicename')
         
         # authorise with ecas if needed
-        if requiresAuthentication(servicename):
-            if isAuthenticated() == False:
-                web.ctx.status = '401 Unauthorized'
-                web.header("Content-Type", "text/html")
-                return "<html><head></html><body><h1>Authentication required</h1></body></html>"
+#         if requiresAuthentication(servicename):
+#             if isAuthenticated() == False:
+#                 web.ctx.status = '401 Unauthorized'
+#                 web.header("Content-Type", "text/html")
+#                 return "<html><head></html><body><h1>Authentication required</h1></body></html>"
 
         # connect to the database to get the data
         conn = dbconnect("species_especies_schema")
