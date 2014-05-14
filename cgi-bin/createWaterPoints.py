@@ -150,7 +150,7 @@ def getScenesForPoint(collection, x, y, crs):
 conn = dbconnect("species_especies_schema")
 conn.cur.execute("delete from gee_validated_sites;")
 sql = "SELECT DISTINCT landsat_wrs2.path,  landsat_wrs2.row,  st_x(st_centroid(landsat_wrs2.geom)),  st_y(st_centroid(landsat_wrs2.geom)), l8_toa_scene_count, l8_toa_cloud_stats FROM especies.landsat_wrs2 WHERE l8_toa_scene_count>0 ORDER BY 1,2;"
-# sql = "SELECT DISTINCT landsat_wrs2.path,  landsat_wrs2.row,  st_x(st_centroid(landsat_wrs2.geom)),  st_y(st_centroid(landsat_wrs2.geom)), l8_toa_scene_count, l8_toa_cloud_stats FROM especies.landsat_wrs2 WHERE l8_toa_scene_count>0 AND path=197 and row=50 ORDER BY 1,2;"
+# sql = "SELECT DISTINCT landsat_wrs2.path,  landsat_wrs2.row,  st_x(st_centroid(landsat_wrs2.geom)),  st_y(st_centroid(landsat_wrs2.geom)), l8_toa_scene_count, l8_toa_cloud_stats FROM especies.landsat_wrs2 WHERE l8_toa_scene_count>0 AND path=197 and row>50 ORDER BY 1,2;"
 conn.cur.execute(sql)
 print "Creating random water validation sites..\n"
 pathRows = conn.cur.fetchall()
@@ -182,7 +182,6 @@ for pathRow in pathRows:
         scene = ee.Image(fullsceneid)
         properties = scene.getInfo()['properties']
         print "Water detection.."
-        bbox = ee.Geometry.Polygon([[properties['CORNER_LL_LON_PRODUCT'], properties['CORNER_LL_LAT_PRODUCT']], [properties['CORNER_UL_LON_PRODUCT'], properties['CORNER_UL_LAT_PRODUCT']], [properties['CORNER_UR_LON_PRODUCT'], properties['CORNER_UR_LAT_PRODUCT']], [properties['CORNER_LR_LON_PRODUCT'], properties['CORNER_LR_LAT_PRODUCT']]]);
         landsat_collection = ee.ImageCollection([scene])
         landsat = getCompositeData()
         ndvi = landsat.normalizedDifference(["B5", "B4"])
@@ -192,15 +191,10 @@ for pathRow in pathRows:
         landsat_mask = getMasks(landsat)
         # 4. DETECT WATER BODIES
         water_landsat = detectWaterBodies()
-        coords = scene.getInfo()['properties']['system:footprint']['coordinates']
-        minx = coords[1][0]
-        maxx = coords[3][0]
-        miny = coords[2][1]
-        maxy = coords[0][1]
-        bbox2 = [[minx, miny], [maxx, miny], [maxx, maxy], [minx, maxy]]
+        bbox = scene.geometry().getInfo()['coordinates']
         thumbnail = water_landsat.getThumbUrl({
         'size': '1000',
-        'region': bbox2,
+        'region': bbox,
         'palette': '0000ff'
         })
         print "Water image: " + thumbnail
@@ -215,22 +209,21 @@ for pathRow in pathRows:
     #         if point[0]!='id':
     #             print 'long: ' + str(point[1]) + ' lat: ' + str(point[2])
         try: 
-            print "Getting random points in bbox " + str(bbox['coordinates']) + ".."
-            random_points = ee.FeatureCollection.randomPoints(bbox, SCENE_RANDOM_POINT_COUNT)
-            print "Getting lat/longs for random points.."
-            random_points_quantised = ee.ImageCollection(water_landsat).getRegion(random_points, 30).getInfo()
+            print "Getting random points in bbox " + str(bbox) + ".."
+            random_points = ee.FeatureCollection.randomPoints(scene.geometry(), SCENE_RANDOM_POINT_COUNT)
             print "Getting random points which have been classified as water.."
+            random_points_quantised = water_landsat.reduceRegions(random_points, ee.Reducer.first()).filter(ee.Filter.neq('first', None))
         except (EEException) as e:
             print e.message
             pass
-        if len(random_points_quantised)>1:
-            for point in random_points_quantised:
-                if point[0] != 'id':
-                    print 'long: ' + str(point[1]) + ' lat: ' + str(point[2]) 
-                    sql2 = "INSERT INTO gee_validated_sites(objectid, gee_lat, gee_lng, predicted_class, sceneid, cloud_cover, sun_elevation,geom) VALUES (" + str(random.randrange(0, 100000000)) + "," + str(point[2]) + "," + str(point[1]) + ",'3','" + fullsceneid + "'," + str(mincloud) + "," + str(sceneSunElevation) + ", ST_SetSRID(ST_Point(" + str(point[1]) + "," + str(point[2]) + "),4326));"
-                    conn.cur.execute(sql2)
+        if len(random_points_quantised.getInfo()['features']) > 0:
+            for feature in random_points_quantised.getInfo()['features']:
+                coordinate = feature['geometry']['coordinates']
+                print 'long: ' + str(coordinate[0]) + ' lat: ' + str(coordinate[1]) 
+                sql2 = "INSERT INTO gee_validated_sites(objectid, gee_lat, gee_lng, predicted_class, sceneid, cloud_cover, sun_elevation,geom) VALUES (" + str(random.randrange(0, 100000000)) + "," + str(coordinate[1]) + "," + str(coordinate[0]) + ",'3','" + fullsceneid + "'," + str(mincloud) + "," + str(sceneSunElevation) + ", ST_SetSRID(ST_Point(" + str(coordinate[1]) + "," + str(coordinate[0]) + "),4326));"
+                conn.cur.execute(sql2)
         else:
             print "No points classified as water"
         print "\n"
     else:
-        print "No scenes found\n" 
+        print "No scenes found\n"
