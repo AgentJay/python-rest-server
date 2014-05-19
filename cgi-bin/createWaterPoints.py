@@ -2,6 +2,7 @@
 import sys, json, datetime, math, psycopg2, ee, earthEngine, random
 from dbconnect import dbconnect
 collectionid = 'LANDSAT/LC8_L1T_TOA'
+sunElevationThreshold = 42  # Landsat scenes with a solar elevation angle lower than this angle will not be considered
 earthEngine.authenticate() 
 # iterate through the validation sites
 conn = dbconnect("species_especies_schema")
@@ -26,7 +27,7 @@ for pathRow in pathRows:
         for scene in scenes['features']:
             if scene['properties']['WRS_ROW'] == row and scene['properties']['WRS_PATH'] == path:
                 sceneSunElevation = scene['properties']['SUN_ELEVATION']
-                if sceneSunElevation > 45:
+                if sceneSunElevation > sunElevationThreshold:
                     sceneid = scene['properties']["system:index"] 
                     cloud = scene['properties']['CLOUD_COVER']
                     if cloud < mincloud:
@@ -38,27 +39,33 @@ for pathRow in pathRows:
             print "Using scene " + fullsceneid 
             scene = ee.Image(fullsceneid)
             print "Water detection"
-            water = earthEngine.detectWater(scene)
+            detection = earthEngine.detectWater(scene)
             bbox = scene.geometry().getInfo()['coordinates']
-            thumbnail = water.getThumbUrl({'size': '1000', 'region': bbox, 'min':0, 'max':3, 'palette': '444444,000000,ffffff,0000ff'})
+            thumbnail = detection.getThumbUrl({'size': '1000', 'region': bbox, 'min':0, 'max':3, 'palette': '444444,000000,ffffff,0000ff'})
             print "Water image: " + thumbnail
+            water = detection.expression("b('class')==3")
+            water = water.mask(water)
             try: 
-                print "Getting random points in bbox " + str(bbox) 
+                print "Getting random points in bbox " + str(bbox)[:106] + ".."
                 random_points = ee.FeatureCollection.randomPoints(scene.geometry(), 1000)
                 print "Getting random points which have been classified as water.."
                 random_points_quantised = water.reduceRegions(random_points, ee.Reducer.first()).filter(ee.Filter.neq('first', None))
                 if len(random_points_quantised.getInfo()['features']) > 0:
+                    count = 1
                     for feature in random_points_quantised.getInfo()['features']:
                         coordinate = feature['geometry']['coordinates']
                         print 'long: ' + str(coordinate[0]) + ' lat: ' + str(coordinate[1]) 
-                        sql2 = "INSERT INTO gee_validated_sites(objectid, gee_lat, gee_lng, predicted_class, sceneid, cloud_cover, sun_elevation,geom) VALUES (" + str(random.randrange(0, 100000000)) + "," + str(coordinate[1]) + "," + str(coordinate[0]) + ",'3','" + fullsceneid + "'," + str(mincloud) + "," + str(sceneSunElevation) + ", ST_SetSRID(ST_Point(" + str(coordinate[1]) + "," + str(coordinate[0]) + "),4326));"
+                        sql2 = "INSERT INTO gee_validated_sites(objectid, gee_lat, gee_lng, predicted_class, sceneid, cloud_cover, sun_elevation,geom) VALUES (" + str(random.randrange(0, 100000000)) + "," + str(coordinate[1]) + "," + str(coordinate[0]) + ",'3','" + fullsceneid + "'," + str(mincloud) + "," + str(sceneSunElevation) + ", ST_SetSRID(ST_Point(" + str(coordinate[0]) + "," + str(coordinate[1]) + "),4326));"
                         conn.cur.execute(sql2)
+                        count = count + 1
+                    print '\tTotal points: ' + str(count) 
                 else:
                     print "No points classified as water"
             except (Exception) as e:
+                print e
                 pass
             print "\n"
         else:
-            print "No scenes found with sun elevation > 45 degrees\n"
+            print "No scenes found with sun elevation > " + str(sunElevationThreshold) + " degrees\n"
     else:
         print "No scenes found for path: " + str(path) + " row: " + str(row) + "\n"
