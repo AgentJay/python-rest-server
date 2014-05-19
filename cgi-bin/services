@@ -845,7 +845,6 @@ class wmsParams:  # class to retrieve the standard wms parameters
         self.style = parameters['STYLES']
         self.service = parameters['SERVICE']
         self.crs = parameters['CRS']
-        self.layers = parameters['LAYERS']
         self.format = parameters['FORMAT']
         self.request = parameters['REQUEST']
         self.height = parameters['HEIGHT']
@@ -853,6 +852,10 @@ class wmsParams:  # class to retrieve the standard wms parameters
         self.version = parameters['VERSION']
         self.bbox = parameters['BBOX']
         self.transparent = parameters['TRANSPARENT']
+        if 'LAYERS' in parameters.keys():
+            self.layers = parameters['LAYERS'] #{"sceneid":"LANDSAT/LC8_L1T_TOA/LC81970502014109LGN00","redBand":"B4","greenBand":"B3","blueBand":"B2","min":0,"max":0.4}
+        else:
+            self.layers = '{"sceneid":"LANDSAT/LC8_L1T_TOA/LC81970502014109LGN00","redBand":"B4","greenBand":"B3","blueBand":"B2","min":0,"max":0.4}'
     
 def returnThumbnailJSON(url):
     params = getQueryStringParams(web.ctx.query[1:])  # get the querystring parameters to get the callback function name
