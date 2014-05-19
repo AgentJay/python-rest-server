@@ -168,7 +168,7 @@ def callservice(schemaname, servicename, querystring):
         # get the standard optional parameters from the url 
         format = params.setdefault('format', 'json') 
         fields = params.setdefault('fields', '').split(",")  # fields will be passed as an array, e.g. iucn_species_id,wdpa_id
-        includemetadata = params.setdefault('includemetadata', 'true')
+        includemetadata = params.setdefault('includemetadata', 'false')
         metadataName = params.setdefault('metadataname', 'metadata')
         rootName = params.setdefault('rootname', 'records')
         parseparams = params.setdefault('parseparams', 'true')

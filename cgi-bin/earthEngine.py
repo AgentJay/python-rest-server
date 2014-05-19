@@ -4,19 +4,19 @@ from dbconnect import google_earth_engine
 from orderedDict import OrderedDict
 from ee import EEException
 # Constants
-applyCloudMask = True  # Set to 1 to apply a cloud mask
-applySlopeMask = True  # Set to 1 to apply a slope mask
-applyNDVIMask = True  # Set to 1 to apply an ndvi mask
-applyTemperatureMask = True  # Set to 1 to apply a temperature mask
-cloudNDVIThreshold = 0.11  # Pixels with an NDVI lower than this threshold may be clouds
-slopeMaskThreshold = 0.17  # Pixels with a slope greater than this threshold in radians will be excluded
-ndviMaskThreshold = 0.1  # Pixels with an NDVI greater than this threshold will be excluded
-annualMaxTempThreshold = 310  # Threshold for the max annual temperature above which bare rock could be present
-annualMaxNDVIThreshold = 0.14  # Threshold for the max annual NDVI below which bare rock will be present
-lowerSceneTempThreshold = 272.15  # lower temperature threshold for the scene
-upperSceneTempThreshold = 308  # upper temperature threshold for the scene
+applyCloudMask = True               # Set to 1 to apply a cloud mask
+applySlopeMask = True               # Set to 1 to apply a slope mask
+applyNDVIMask = True                # Set to 1 to apply an ndvi mask
+applyTemperatureMask = True         # Set to 1 to apply a temperature mask
+cloudNDVIThreshold = 0.11           # Pixels with an NDVI lower than this threshold may be clouds
+slopeMaskThreshold = 0.17           # Pixels with a slope greater than this threshold in radians will be excluded
+ndviMaskThreshold = 0.1             # Pixels with an NDVI greater than this threshold will be excluded
+annualMaxTempThreshold = 310        # Threshold for the max annual temperature above which bare rock could be present
+annualMaxNDVIThreshold = 0.14       # Threshold for the max annual NDVI below which bare rock will be present
+lowerSceneTempThreshold = 272.15    # lower temperature threshold for the scene
+upperSceneTempThreshold = 308       # upper temperature threshold for the scene
 temperatureDifferenceThreshold = 9  # Pixels with a day/night temperature difference greater than this threshold will be excluded
-sunElevationThreshold = 42  # Landsat scenes with a solar elevation angle greater than this angle will be included
+sunElevationThreshold = 42          # Landsat scenes with a solar elevation angle greater than this angle will be included
 collectionid = 'LANDSAT/LC8_L1T_TOA'
 detectionExpressions = [
   {"bands":{"r":"B7", "g":"B5", "b":"B4"}, "expression":"((b('h')<(3.038667895460303*b('v'))+236.62216730574633)&&(b('h')<(10796.714793390856*b('v'))+204.85937891753062)&&(b('h')>(52.75476688685699*b('v'))+209.3760200216838))||((b('h')>(3.038667895460303*b('v'))+236.62216730574633)&&(b('h')<(2.0464628168010686*b('v'))+237.16593011613543)&&(b('h')<(9.076683306759795*b('v'))+236.60439910485127))||((b('h')<(-0.24666028009321075*b('v'))+238.42264113944557)&&(b('h')<(9.88710145914933*b('v'))+236.539667859889)&&(b('h')>(2.0464628168010686*b('v'))+237.1659301161354))||((b('h')>(-43.65372607478519*b('v'))+209.41654907810485)&&(b('h')<(-11433.100423818365*b('v'))+6504.023197860868)&&(b('h')<(52.75476688685699*b('v'))+209.3760200216838))||((b('h')>(26.243531044391943*b('v'))+170.78642497548128)&&(b('h')<(-43.65372607478519*b('v'))+209.41654907810485)&&(b('h')>(-1107.3553634247025*b('v'))+209.86371739648635))||((b('h')>(295.7226981444027*b('v'))+21.853346666047287)&&(b('h')<(26.243531044391943*b('v'))+170.78642497548128)&&(b('h')>(8.433335884642577*b('v'))+171.4003760014821))||((b('h')<(8.433335884642577*b('v'))+171.4003760014821)&&(b('h')>(-31.37019423910757*b('v'))+172.77247877400865)&&(b('h')>(82.71930111287884*b('v'))+132.73119126796098))||((b('h')<(-31.37019423910757*b('v'))+172.77247877400865)&&(b('h')>(-115.8110462176276*b('v'))+175.68331423895395)&&(b('h')>(4.932732579069547*b('v'))+160.0314641384984))||((b('h')<(-115.8110462176276*b('v'))+175.68331423895395)&&(b('h')>(-212.72738738403356*b('v'))+179.02420335115374)&&(b('h')>(7.045573926497733*b('v'))+159.75757941842787))"},

@@ -49,6 +49,8 @@ $def with (schemaname, servicename, servicedesc, inparams, outparams, header, fo
 		$def getqueryparams(params, queryparams):
 			$for param in params:
 				$ value = "1"
+				$if (param['name'] in ['country']):
+					$ value = "Honduras"
 				$if (param['name'] in ['country_id','countryid']):
 					$ value = "458"
 				$elif (param['name'] in ['wdpa_id','wdpaid']):

@@ -179,7 +179,6 @@ def callservice(schemaname, servicename, querystring):
         del (params['format'], params['fields'], params['includemetadata'], params['parseparams'], params['metadataname'], params['rootname'], params['sortfield'])
         if 'callback' in params.keys():
             del(params['callback'])
-
         # check if the service name is valid
         if not (isValidServiceName(servicename)):
             raise DopaServicesError('Invalid servicename')
