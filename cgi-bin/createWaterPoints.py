@@ -47,18 +47,18 @@ for pathRow in pathRows:
             water = water.mask(water)
             try: 
                 print "Getting random points in bbox " + str(bbox)[:106] + ".."
-                random_points = ee.FeatureCollection.randomPoints(scene.geometry(), 1000)
-                print "Getting random points which have been classified as water.."
+                random_points = ee.FeatureCollection.randomPoints(scene.geometry(), 500)
+                print "Getting random points classified as water.."
                 random_points_quantised = water.reduceRegions(random_points, ee.Reducer.first()).filter(ee.Filter.neq('first', None))
-                if len(random_points_quantised.getInfo()['features']) > 0:
-                    count = 1
-                    for feature in random_points_quantised.getInfo()['features']:
-                        coordinate = feature['geometry']['coordinates']
-                        print 'long: ' + str(coordinate[0]) + ' lat: ' + str(coordinate[1]) 
-                        sql2 = "INSERT INTO gee_validated_sites(objectid, gee_lat, gee_lng, predicted_class, sceneid, cloud_cover, sun_elevation,geom) VALUES (" + str(random.randrange(0, 100000000)) + "," + str(coordinate[1]) + "," + str(coordinate[0]) + ",'3','" + fullsceneid + "'," + str(mincloud) + "," + str(sceneSunElevation) + ", ST_SetSRID(ST_Point(" + str(coordinate[0]) + "," + str(coordinate[1]) + "),4326));"
+                longLats = [(c['geometry']['coordinates'][0],c['geometry']['coordinates'][1]) for c in random_points_quantised.getInfo()['features']]
+                count = 1
+                if len(longLats):
+                    for lon,lat in longLats:
+                        print 'longitude: ' + str(lon) + ' latitude: ' + str(lat) 
+                        sql2 = "INSERT INTO gee_validated_sites(objectid, gee_lat, gee_lng, predicted_class, sceneid, cloud_cover, sun_elevation,geom) VALUES (" + str(random.randrange(0, 100000000)) + "," + str(lat) + "," + str(lon) + ",'3','" + fullsceneid + "'," + str(mincloud) + "," + str(sceneSunElevation) + ", ST_SetSRID(ST_Point(" + str(lon) + "," + str(lat) + "),4326));"
                         conn.cur.execute(sql2)
                         count = count + 1
-                    print '\tTotal points: ' + str(count) 
+                    print '\tTotal points: ' + str(count - 1) 
                 else:
                     print "No points classified as water"
             except (Exception) as e:
