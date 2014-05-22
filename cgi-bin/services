@@ -36,7 +36,7 @@ urls = (
   "/gee/getValuesForPolygon", "getValuesForPolygon",
   "/gee/createValidationSites", "createValidationSites",
   "/gee/WMSServer", "geeWMS",
-  "/gee/WMS_scene", "gee_WMS_scene",
+  "/gee/WMS_image", "gee_WMS_image",
   "/gee/WMS_sequence", "gee_WMS_sequence",
   "/gee/WMS_video", "gee_WMS_video",
   "/endSession", "endSession",
@@ -642,8 +642,7 @@ class getValuesForPolygon:  #
     def GET(self):
         return 'not yet implemented'
 
-class gee_WMS_scene:  # single landsat scene created from a Google Earth Engine identifier
-    #e.g. http://dopa-services.jrc.it/services/gee/WMS_scene?SERVICE=wms&REQUEST=GetMap&FORMAT=image%2Fpng&TRANSPARENT=TRUE&STYLES=&VERSION=1.3.0&LAYERS=%7B%22sceneid%22%3A%22LANDSAT%2FLC8_L1T_TOA%2FLC81970502014109LGN00%22%2C%22hsv%22%3ATrue%7D&WIDTH=1152&HEIGHT=603&CRS=EPSG%3A102100&BBOX=-568710.1216758855%2C1639852.2176940937%2C-392599.208506772%2C1732035.2738060516&callback=dojo_request_script_callbacks.dojo_request_script7
+class gee_WMS_image:
     def GET(self):
         try:
             # PARAMETER PARSING
@@ -655,10 +654,10 @@ class gee_WMS_scene:  # single landsat scene created from a Google Earth Engine 
             else:
                 ll_x, ll_y, ur_x, ur_y = wmsParameters.bbox.split(",")  # same for the moment
             # SET THE MIN/MAX VALUES
-            layerParameters.setdefault("min", 7000)
-            layerParameters.setdefault("max", 14000)
+            layerParameters.setdefault("min", 0)
+            layerParameters.setdefault("max", 0.7)
             # GET THE IMAGE THUMBNAIL 
-            output_thumbnail = earthEngine.getSceneImage(layerParameters['sceneid'], ll_x, ll_y, ur_x, ur_y, wmsParameters.crs, wmsParameters.width, wmsParameters.height, layerParameters)
+            output_thumbnail = earthEngine.getImage(float(ll_x), float(ll_y), float(ur_x), float(ur_y), wmsParameters.crs, wmsParameters.width, wmsParameters.height, layerParameters)
             # RETURN A LINK TO THE THUMBNAIL 
             return returnThumbnailJSON(output_thumbnail)
 
@@ -851,10 +850,7 @@ class wmsParams:  # class to retrieve the standard wms parameters
         self.version = parameters['VERSION']
         self.bbox = parameters['BBOX']
         self.transparent = parameters['TRANSPARENT']
-        if 'LAYERS' in parameters.keys():
-            self.layers = parameters['LAYERS'] #{"sceneid":"LANDSAT/LC8_L1T_TOA/LC81970502014109LGN00","redBand":"B4","greenBand":"B3","blueBand":"B2","min":0,"max":0.4}
-        else:
-            self.layers = '{"sceneid":"LANDSAT/LC8_L1T_TOA/LC81970502014109LGN00","redBand":"B4","greenBand":"B3","blueBand":"B2","min":0,"max":0.4}'
+        self.layers = parameters['LAYERS']  # {"sceneid":"LANDSAT/LC8_L1T_TOA/LC81970502014109LGN00","redBand":"B4","greenBand":"B3","blueBand":"B2","min":0,"max":0.4}
     
 def returnThumbnailJSON(url):
     params = getQueryStringParams(web.ctx.query[1:])  # get the querystring parameters to get the callback function name

@@ -50,10 +50,12 @@ for pathRow in pathRows:
                 random_points = ee.FeatureCollection.randomPoints(scene.geometry(), 500)
                 print "Getting random points classified as water.."
                 random_points_quantised = water.reduceRegions(random_points, ee.Reducer.first()).filter(ee.Filter.neq('first', None))
+                print "Getting lat/long data.."
                 features = random_points_quantised.getInfo()['features']
                 longLats = [(c['geometry']['coordinates'][0], c['geometry']['coordinates'][1]) for c in features]
                 count = 1
                 if len(longLats):
+                    print "Inserting records.."
                     for lon, lat in longLats:
                         sql2 = "INSERT INTO gee_validated_sites(objectid, gee_lat, gee_lng, predicted_class, sceneid, cloud_cover, sun_elevation,geom) VALUES (" + str(random.randrange(0, 100000000)) + "," + str(lat) + "," + str(lon) + ",'3','" + fullsceneid + "'," + str(mincloud) + "," + str(sceneSunElevation) + ", ST_SetSRID(ST_Point(" + str(lon) + "," + str(lat) + "),4326));"
                         conn.cur.execute(sql2)

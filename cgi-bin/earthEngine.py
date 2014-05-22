@@ -1,22 +1,22 @@
 # Python module that wraps all of the Google Earth Engine functionality. This class returns all results as dictionaries either for internal Python use or for returning in other formats to the web
-import sys, ee, cPickle, utilities, math, datetime
+import sys, ee, cPickle, utilities, math, datetime, time
 from dbconnect import google_earth_engine
 from orderedDict import OrderedDict
 from ee import EEException
 # Constants
-applyCloudMask = True               # Set to 1 to apply a cloud mask
-applySlopeMask = True               # Set to 1 to apply a slope mask
-applyNDVIMask = True                # Set to 1 to apply an ndvi mask
-applyTemperatureMask = True         # Set to 1 to apply a temperature mask
-cloudNDVIThreshold = 0.11           # Pixels with an NDVI lower than this threshold may be clouds
-slopeMaskThreshold = 0.17           # Pixels with a slope greater than this threshold in radians will be excluded
-ndviMaskThreshold = 0.1             # Pixels with an NDVI greater than this threshold will be excluded
-annualMaxTempThreshold = 310        # Threshold for the max annual temperature above which bare rock could be present
-annualMaxNDVIThreshold = 0.14       # Threshold for the max annual NDVI below which bare rock will be present
-lowerSceneTempThreshold = 272.15    # lower temperature threshold for the scene
-upperSceneTempThreshold = 308       # upper temperature threshold for the scene
+applyCloudMask = True  # Set to 1 to apply a cloud mask
+applySlopeMask = True  # Set to 1 to apply a slope mask
+applyNDVIMask = True  # Set to 1 to apply an ndvi mask
+applyTemperatureMask = True  # Set to 1 to apply a temperature mask
+cloudNDVIThreshold = 0.11  # Pixels with an NDVI lower than this threshold may be clouds
+slopeMaskThreshold = 0.17  # Pixels with a slope greater than this threshold in radians will be excluded
+ndviMaskThreshold = 0.1  # Pixels with an NDVI greater than this threshold will be excluded
+annualMaxTempThreshold = 310  # Threshold for the max annual temperature above which bare rock could be present
+annualMaxNDVIThreshold = 0.14  # Threshold for the max annual NDVI below which bare rock will be present
+lowerSceneTempThreshold = 272.15  # lower temperature threshold for the scene
+upperSceneTempThreshold = 308  # upper temperature threshold for the scene
 temperatureDifferenceThreshold = 9  # Pixels with a day/night temperature difference greater than this threshold will be excluded
-sunElevationThreshold = 42          # Landsat scenes with a solar elevation angle greater than this angle will be included
+sunElevationThreshold = 42  # Landsat scenes with a solar elevation angle greater than this angle will be included
 collectionid = 'LANDSAT/LC8_L1T_TOA'
 detectionExpressions = [
   {"bands":{"r":"B7", "g":"B5", "b":"B4"}, "expression":"((b('h')<(3.038667895460303*b('v'))+236.62216730574633)&&(b('h')<(10796.714793390856*b('v'))+204.85937891753062)&&(b('h')>(52.75476688685699*b('v'))+209.3760200216838))||((b('h')>(3.038667895460303*b('v'))+236.62216730574633)&&(b('h')<(2.0464628168010686*b('v'))+237.16593011613543)&&(b('h')<(9.076683306759795*b('v'))+236.60439910485127))||((b('h')<(-0.24666028009321075*b('v'))+238.42264113944557)&&(b('h')<(9.88710145914933*b('v'))+236.539667859889)&&(b('h')>(2.0464628168010686*b('v'))+237.1659301161354))||((b('h')>(-43.65372607478519*b('v'))+209.41654907810485)&&(b('h')<(-11433.100423818365*b('v'))+6504.023197860868)&&(b('h')<(52.75476688685699*b('v'))+209.3760200216838))||((b('h')>(26.243531044391943*b('v'))+170.78642497548128)&&(b('h')<(-43.65372607478519*b('v'))+209.41654907810485)&&(b('h')>(-1107.3553634247025*b('v'))+209.86371739648635))||((b('h')>(295.7226981444027*b('v'))+21.853346666047287)&&(b('h')<(26.243531044391943*b('v'))+170.78642497548128)&&(b('h')>(8.433335884642577*b('v'))+171.4003760014821))||((b('h')<(8.433335884642577*b('v'))+171.4003760014821)&&(b('h')>(-31.37019423910757*b('v'))+172.77247877400865)&&(b('h')>(82.71930111287884*b('v'))+132.73119126796098))||((b('h')<(-31.37019423910757*b('v'))+172.77247877400865)&&(b('h')>(-115.8110462176276*b('v'))+175.68331423895395)&&(b('h')>(4.932732579069547*b('v'))+160.0314641384984))||((b('h')<(-115.8110462176276*b('v'))+175.68331423895395)&&(b('h')>(-212.72738738403356*b('v'))+179.02420335115374)&&(b('h')>(7.045573926497733*b('v'))+159.75757941842787))"},
@@ -25,14 +25,38 @@ detectionExpressions = [
 class GoogleEarthEngineError(Exception):
     """Exception Class that allows the DOPA Services REST Server to raise custom exceptions"""
     pass  
+ 
+def getImage(ll_x, ll_y, ur_x, ur_y, crs, width, height, layerParameters): 
+    authenticate()
+    region = getBoundingBoxLL(ll_x, ll_y, ur_x, ur_y, crs)
+    if layerParameters['sceneid'] == 'collection':
+        # GET A COLLECTION TO CREATE AN IMAGE FOR
+        layerParameters.setdefault("collectionid", "LANDSAT/LC8_L1T_TOA")
+        layerParameters.setdefault("startDate", "2013-09-13")
+        layerParameters.setdefault("endDate", "2013-10-15")
+        sd = datetime.datetime(int(layerParameters['startDate'][:4]), int(layerParameters['startDate'][5:7]), int(layerParameters['startDate'][8:10]))
+        ed = datetime.datetime(int(layerParameters['endDate'][:4]), int(layerParameters['endDate'][5:7]), int(layerParameters['endDate'][8:10]))
+        try:
+            landsat_collection = ee.ImageCollection(layerParameters['collectionid']).filterBounds(ee.Feature.Polygon(region)).filterDate(sd, ed)
+            if len(landsat_collection.getInfo()['features']) != 0:
+                scene = landsat_collection.median()
+                if "SENSOR_ID" not in landsat_collection.getInfo()['features'][0]['properties'].keys():
+                    sensor = "OLI_TIRS"
+                else:
+                    sensor = landsat_collection.getInfo()['features'][0]['properties']['SENSOR_ID']
+            else:
+                raise GoogleEarthEngineError("getImage: No matching scenes")
+        except (GoogleEarthEngineError):
+            return "Google Earth Engine Services Error: " + str(sys.exc_info())
 
-def getSceneImage(sceneid, ll_x, ll_y, ur_x, ur_y, crs, width, height, layerParameters):
-    try:
-        authenticate()
-        region = getBoundingBoxLL(ll_x, ll_y, ur_x, ur_y, crs)  # get the bounding box as lat/long suitable for sending to GEE API
-        # PROCESS THE INPUT SCENE
-        scene = ee.Image(sceneid)
+    else:
+        # GET THE SINGLE SCENE TO CREATE AN IMAGE FOR
+        scene = ee.Image(layerParameters['sceneid'])
         sensor = scene.getInfo()['properties']['SENSOR_ID']
+    return getSceneImage(sensor, scene, region, width, height, layerParameters)
+
+def getSceneImage(sensor, scene, region, width, height, layerParameters):
+    try:
         # SET THE BANDS 
         if sensor == "OLI_TIRS":  # landsat 8
             layerParameters.setdefault("redBand", "B4")
@@ -70,12 +94,30 @@ def getSceneImage(sceneid, ll_x, ll_y, ur_x, ur_y, crs, width, height, layerPara
             mask = scene.mask(booleanClass)  # create the mask
             output_thumbnail = mask.getThumbUrl({'bands': bands, 'size': width + 'x' + height , 'min': layerParameters['min'], 'max': layerParameters['max'], 'region': region})
             return output_thumbnail
-        else:
-            output_thumbnail = scene.getThumbUrl({'bands': bands, 'size': width + 'x' + height , 'min': layerParameters['min'], 'max': layerParameters['max'], 'region': region})
-            return output_thumbnail
+        if 'detectWater' in layerParameters.keys():
+            if layerParameters['detectWater']:
+                detection = detectWater(scene)
+                output_thumbnail = detection.getThumbUrl({'palette': '444444,000000,ffffff,0000ff', 'size': width + 'x' + height , 'min': 0, 'max': 3, 'region': region})
+                return output_thumbnail
+        output_thumbnail = scene.getThumbUrl({'bands': bands, 'size': width + 'x' + height , 'min': layerParameters['min'], 'max': layerParameters['max'], 'region': region})
+        return output_thumbnail
     
     except (EEException):
         return "Google Earth Engine Error: " + str(sys.exc_info())        
+
+def getSensorDefaultBands(dict, sensor):
+    if sensor == "OLI_TIRS":  # landsat 8
+        dict.setdefault("redBand", "B4")
+        dict.setdefault("greenBand", "B3")
+        dict.setdefault("blueBand", "B2")
+    elif (sensor == "ETM+") | (sensor == "ETM"):  # landsat 7
+        dict.setdefault("redBand", "30")
+        dict.setdefault("greenBand", "20")
+        dict.setdefault("blueBand", "10")
+    elif sensor == "TM":  # landsat 5
+        dict.setdefault("redBand", "30")
+        dict.setdefault("greenBand", "20")
+        dict.setdefault("blueBand", "10")
 
 def illuminationCorrection(image):
     # accepts either a single scene which will have the sun elevation and azimuth already populated, or a collection image which will need to have the sun elevation and azimuth manually populated and accessed via the properties
@@ -250,7 +292,8 @@ def detectWater(image):
         # add a band for areas where the hsv 432 is ok for cloud
         image = image.addBands(convertToHsv(image, "OLI_TIRS", {"r":"B4", "g":"B3", "b":"B2"}), None, True)
         image = image.addBands(image.expression("((b('h')<(-290.3647541295557*b('v'))+365.9204839911988)&&(b('h')<(335.1949426777476*b('v'))+136.9220846732972)&&(b('h')>(-23.505492887658985*b('v'))+223.42719816416374))||((b('h')<(131.3034109469229*b('v'))+211.56057983072515)&&(b('h')>(-290.3647541295557*b('v'))+365.9204839911988)&&(b('h')>(412.868927627023*b('v'))-9.581110187711033))||((b('h')<(-110.96188694961242*b('v'))+401.8358594223264)&&(b('h')<(31201.82786617771*b('v'))-11162.414442104384)&&(b('h')>(131.3034109469229*b('v'))+211.56057983072515))||((b('h')<(4.324914848340889*b('v'))+359.25883441225426)&&(b('h')>(-110.96188694961242*b('v'))+401.8358594223264)&&(b('h')>(423.77264053876735*b('v'))-18.144891467499406))||((b('h')<(-23.505492887658985*b('v'))+223.42719816416374)&&(b('h')>(-716.983867682122*b('v'))+390.66821480942525)&&(b('h')>(272.52480149100506*b('v'))+65.35762563348138))||((b('h')<(-3550.663071023035*b('v'))+2106.8029918288794)&&(b('h')<(272.52480149100506*b('v'))+65.35762563348138)&&(b('h')>(-326.4412985361954*b('v'))+262.2735506441135))||((b('h')>(-61.03523580992668*b('v'))+110.43867974751751)&&(b('h')<(-326.4412985361954*b('v'))+262.2735506441135)&&(b('h')>(-1622.2473694938608*b('v'))+688.2823866791312))||((b('h')<(-61.03523580992668*b('v'))+110.43867974751751)&&(b('h')<(1636.2739567673634*b('v'))-517.7779568562837)&&(b('h')>(188.91098090522192*b('v'))-32.551842609834154))||((b('h')<(-77.56198786778931*b('v'))+119.89338940738565)&&(b('h')<(188.91098090522192*b('v'))-32.551842609834154)&&(b('h')>(43.44906482539776*b('v'))+16.214031249978476))||((b('h')<(-33.16714717184527*b('v'))+81.85695813588943)&&(b('h')<(43.44906482539776*b('v'))+16.214031249978476)&&(b('h')>(8.724200034130297*b('v'))+27.855486428395956))||((b('h')>(29699.19026356131*b('v'))-38245.65372368247)&&(b('h')<(8.724200034130297*b('v'))+27.855486428395956)&&(b('h')>(-16.544281722059484*b('v'))+36.32670437437103))||((b('h')>(15.820483019684168*b('v'))-5.367950304752587)&&(b('h')<(-16.544281722059484*b('v'))+36.32670437437103)&&(b('h')>(-7589.899231290106*b('v'))+2575.281793922023))||((b('h')>(46.74233619452139*b('v'))-45.203740876729434)&&(b('h')<(15.820483019684168*b('v'))-5.367950304752586)&&(b('h')>(0*b('v'))+0))").select(["h"], ["cloud_hsv_432_ok"]))
-        image = image.addBands(image.expression("(b('cloud_temp_ok'))||(1&&b('cloud_ndvi_ok')==1&&b('cloud_hsv_654_ok')==1&&b('cloud_hsv_432_ok')==1)").select(["cloud_temp_ok"], ["isCloud"]))
+        cloudMask = image.expression("(b('cloud_temp_ok'))||(1&&b('cloud_ndvi_ok')==1&&b('cloud_hsv_654_ok')==1&&b('cloud_hsv_432_ok')==1)").select(["cloud_temp_ok"], ["isCloud"])
+        image = image.addBands(cloudMask.convolve(ee.Kernel.fixed(5, 5, [[0, 0, 1, 0, 0], [0, 1, 1, 1, 0], [1, 1, 1, 1, 1], [0, 1, 1, 1, 0], [0, 0, 1, 0, 0]])).expression("b('isCloud')>0"))
     # add a band for the slope mask
     if applySlopeMask:
         terrain = ee.call('Terrain', ee.Image('srtm90_v4')).clip(image.geometry())
@@ -274,8 +317,8 @@ def detectWater(image):
         image = image.addBands(detection.select([detection.bandNames().getInfo()[0]], ["detectExpression" + str(i + 1)]))
     detectbands = [b for b in image.bandNames().getInfo() if b[:6] == "detect"]
     image = image.addBands(image.select(detectbands).reduce(ee.Reducer.allNonZero()).select(["all"], ["water"]))
-    detection = image.expression("b('isEmpty')+(b('isCloud')*2)+(b('water')*3)").select(["isEmpty"],["class"])
-    return detection # 0-not water, 1=no data, 2=cloud, 3=water
+    detection = image.expression("b('isEmpty')+(b('isCloud')*2)+(b('water')*3)").select(["isEmpty"], ["class"])
+    return detection  # 0-not water, 1=no data, 2=cloud, 3=water
 
 def authenticate():
     # initialisation
