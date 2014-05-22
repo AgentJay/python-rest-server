@@ -6,7 +6,7 @@ sunElevationThreshold = 42  # Landsat scenes with a solar elevation angle lower 
 earthEngine.authenticate() 
 # iterate through the validation sites
 conn = dbconnect("species_especies_schema")
-conn.cur.execute("delete from gee_validated_sites;")
+# conn.cur.execute("delete from gee_validated_sites;")
 sql = "SELECT DISTINCT landsat_wrs2.path,  landsat_wrs2.row,  st_x(st_centroid(landsat_wrs2.geom)),  st_y(st_centroid(landsat_wrs2.geom)), l8_toa_scene_count, l8_toa_cloud_stats FROM especies.landsat_wrs2 WHERE l8_toa_scene_count>0 ORDER BY 1,2;"
 # sql = "SELECT DISTINCT landsat_wrs2.path,  landsat_wrs2.row,  st_x(st_centroid(landsat_wrs2.geom)),  st_y(st_centroid(landsat_wrs2.geom)), l8_toa_scene_count, l8_toa_cloud_stats FROM especies.landsat_wrs2 WHERE l8_toa_scene_count>0 AND path=197 and row=50 ORDER BY 1,2;"
 conn.cur.execute(sql)
@@ -50,11 +50,11 @@ for pathRow in pathRows:
                 random_points = ee.FeatureCollection.randomPoints(scene.geometry(), 500)
                 print "Getting random points classified as water.."
                 random_points_quantised = water.reduceRegions(random_points, ee.Reducer.first()).filter(ee.Filter.neq('first', None))
-                longLats = [(c['geometry']['coordinates'][0],c['geometry']['coordinates'][1]) for c in random_points_quantised.getInfo()['features']]
+                features = random_points_quantised.getInfo()['features']
+                longLats = [(c['geometry']['coordinates'][0], c['geometry']['coordinates'][1]) for c in features]
                 count = 1
                 if len(longLats):
-                    for lon,lat in longLats:
-                        print 'longitude: ' + str(lon) + ' latitude: ' + str(lat) 
+                    for lon, lat in longLats:
                         sql2 = "INSERT INTO gee_validated_sites(objectid, gee_lat, gee_lng, predicted_class, sceneid, cloud_cover, sun_elevation,geom) VALUES (" + str(random.randrange(0, 100000000)) + "," + str(lat) + "," + str(lon) + ",'3','" + fullsceneid + "'," + str(mincloud) + "," + str(sceneSunElevation) + ", ST_SetSRID(ST_Point(" + str(lon) + "," + str(lat) + "),4326));"
                         conn.cur.execute(sql2)
                         count = count + 1
