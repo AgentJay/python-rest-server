@@ -1,21 +1,17 @@
 # Routine to create 10,000 water points from the water detection algorithm so we can get the accuracy of the method
-import psycopg2, subprocess
+import sys, json, datetime, math, psycopg2, ee, earthEngine, random
 from dbconnect import dbconnect
-PYTHON_PATH = '/usr/bin/python'
-WORKER_SCRIPT = '/srv/www/dopa-services/cgi-bin/createWaterPointsSub.py'
+collectionid = 'LANDSAT/LC8_L1T_TOA'
+sunElevationThreshold = 42  # Landsat scenes with a solar elevation angle lower than this angle will not be considered
+earthEngine.authenticate() 
+# iterate through the validation sites
 conn = dbconnect("species_especies_schema")
 # conn.cur.execute("delete from gee_validated_sites;")
-<<<<<<< HEAD
-sql = "SELECT DISTINCT landsat_wrs2.path,  landsat_wrs2.row,  st_x(st_centroid(landsat_wrs2.geom)),  st_y(st_centroid(landsat_wrs2.geom)), l8_toa_scene_count, l8_toa_cloud_stats FROM especies.landsat_wrs2 WHERE l8_toa_scene_count>0 ORDER BY 1,2;"
-# sql = "SELECT DISTINCT landsat_wrs2.path,  landsat_wrs2.row,  st_x(st_centroid(landsat_wrs2.geom)),  st_y(st_centroid(landsat_wrs2.geom)), l8_toa_scene_count, l8_toa_cloud_stats FROM especies.landsat_wrs2 WHERE l8_toa_scene_count>0 AND path=197 and row=50 ORDER BY 1,2;"
-=======
 # sql = "SELECT DISTINCT landsat_wrs2.path,  landsat_wrs2.row,  st_x(st_centroid(landsat_wrs2.geom)),  st_y(st_centroid(landsat_wrs2.geom)), l8_toa_scene_count, l8_toa_cloud_stats FROM especies.landsat_wrs2 WHERE l8_toa_scene_count>0 ORDER BY 1,2;"
-sql = "SELECT DISTINCT landsat_wrs2.path,  landsat_wrs2.row,  st_x(st_centroid(landsat_wrs2.geom)),  st_y(st_centroid(landsat_wrs2.geom)), l8_toa_scene_count, l8_toa_cloud_stats FROM especies.landsat_wrs2 WHERE l8_toa_scene_count>0 AND path>24 ORDER BY 1,2;"
->>>>>>> 6919072453f409f8772a71adb95a4c447afec5d6
+sql = "SELECT DISTINCT landsat_wrs2.path,  landsat_wrs2.row,  st_x(st_centroid(landsat_wrs2.geom)),  st_y(st_centroid(landsat_wrs2.geom)), l8_toa_scene_count, l8_toa_cloud_stats FROM especies.landsat_wrs2 WHERE l8_toa_scene_count>0 AND path>41 ORDER BY 1,2;"
 conn.cur.execute(sql)
-print "Creating random water validation sites..\n" 
+print "Creating random water validation sites..\n"
 pathRows = conn.cur.fetchall()
-<<<<<<< HEAD
 for pathRow in pathRows:
     path = pathRow[0]
     row = pathRow[1]
@@ -59,7 +55,7 @@ for pathRow in pathRows:
                 longLats = [(c['geometry']['coordinates'][0], c['geometry']['coordinates'][1]) for c in features]
                 count = 1
                 if len(longLats):
-                    print "Inserting records.."
+                    print "Getting random points classified as water.."
                     for lon, lat in longLats:
                         sql2 = "INSERT INTO gee_validated_sites(objectid, gee_lat, gee_lng, predicted_class, sceneid, cloud_cover, sun_elevation,geom) VALUES (" + str(random.randrange(0, 100000000)) + "," + str(lat) + "," + str(lon) + ",'3','" + fullsceneid + "'," + str(mincloud) + "," + str(sceneSunElevation) + ", ST_SetSRID(ST_Point(" + str(lon) + "," + str(lat) + "),4326));"
                         conn.cur.execute(sql2)
@@ -75,18 +71,3 @@ for pathRow in pathRows:
             print "No scenes found with sun elevation > " + str(sunElevationThreshold) + " degrees\n"
     else:
         print "No scenes found for path: " + str(path) + " row: " + str(row) + "\n"
-=======
-try:
-    for pathRow in pathRows:
-        path = str(pathRow[0])
-        row = str(pathRow[1])
-        print "\npath: " + path + " row: " + row + "\n========================================================================================================="
-        p = subprocess.Popen([PYTHON_PATH, WORKER_SCRIPT , path, row ])
-        p.wait()
-        print p
-#         p.kill()
-except (Exception) as e:
-    print e
-finally:
-    conn.conn.close()
->>>>>>> 6919072453f409f8772a71adb95a4c447afec5d6

@@ -160,7 +160,7 @@ def callservice(schemaname, servicename, querystring):
     try:  
         t1 = datetime.datetime.now()
         # log the request
-        logging.basicConfig(filename='../../htdocs/mstmp/REST_Services_Log.log', level=logging.DEBUG, format='%(asctime)s %(levelname)s %(message)s',)
+        logging.basicConfig(filename='../../htdocs/mstmp/REST_Services_Log.log', level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s',)
 #         logging.info("REST REQUEST: " + web.ctx.home + web.ctx.path + web.ctx.query)
         # PARSE THE STANDARD OPTIONAL INPUT PARAMETERS
         # get the input parameters
@@ -645,6 +645,7 @@ class getValuesForPolygon:  #
 class gee_WMS_image:
     def GET(self):
         try:
+            logging.basicConfig(filename='../../htdocs/mstmp/earthEngine.log', level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s',)
             # PARAMETER PARSING
             wmsParameters = wmsParams(web.input())  # get the WMS parameters
             layerParameters = ast.literal_eval(wmsParameters.layers)
@@ -657,7 +658,9 @@ class gee_WMS_image:
             layerParameters.setdefault("min", 0)
             layerParameters.setdefault("max", 0.7)
             # GET THE IMAGE THUMBNAIL 
+            logging.info("Request to get a Google Earth Engine image with the following parameters: ll_x=" + ll_x + "  ll_y=" + ll_y + " ur_x=" + ur_x + " ur_y=" +  ur_y + " crs=" + wmsParameters.crs + " width="+ str(wmsParameters.width) + " height="+ str(wmsParameters.height) + " layerParameters=" +  str(layerParameters))
             output_thumbnail = earthEngine.getImage(float(ll_x), float(ll_y), float(ur_x), float(ur_y), wmsParameters.crs, wmsParameters.width, wmsParameters.height, layerParameters)
+            logging.info("Request to get image complete")
             # RETURN A LINK TO THE THUMBNAIL 
             return returnThumbnailJSON(output_thumbnail)
 
