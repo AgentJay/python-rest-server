@@ -8,6 +8,7 @@ applyCloudMask = True  # Set to 1 to apply a cloud mask
 applySlopeMask = True  # Set to 1 to apply a slope mask
 applyNDVIMask = True  # Set to 1 to apply an ndvi mask
 applyTemperatureMask = True  # Set to 1 to apply a temperature mask
+applyBareRockMask = False  # Set to 1 to apply a barerock mask
 cloudNDVIThreshold = 0.11  # Pixels with an NDVI lower than this threshold may be clouds
 slopeMaskThreshold = 0.17  # Pixels with a slope greater than this threshold in radians will be excluded
 ndviMaskThreshold = 0.1  # Pixels with an NDVI greater than this threshold will be excluded
@@ -17,11 +18,10 @@ lowerSceneTempThreshold = 272.15  # lower temperature threshold for the scene
 upperSceneTempThreshold = 308  # upper temperature threshold for the scene
 temperatureDifferenceThreshold = 9  # Pixels with a day/night temperature difference greater than this threshold will be excluded
 sunElevationThreshold = 42  # Landsat scenes with a solar elevation angle greater than this angle will be included
-collectionid = 'LANDSAT/LC8_L1T_TOA'
 waterDetectExpressions = [
   {"bands":"SWIR2,NIR,Red", "expression":"((b('h')<(3.038667895460303*b('v'))+236.62216730574633)&&(b('h')<(10796.714793390856*b('v'))+204.85937891753062)&&(b('h')>(52.75476688685699*b('v'))+209.3760200216838))||((b('h')>(3.038667895460303*b('v'))+236.62216730574633)&&(b('h')<(2.0464628168010686*b('v'))+237.16593011613543)&&(b('h')<(9.076683306759795*b('v'))+236.60439910485127))||((b('h')<(-0.24666028009321075*b('v'))+238.42264113944557)&&(b('h')<(9.88710145914933*b('v'))+236.539667859889)&&(b('h')>(2.0464628168010686*b('v'))+237.1659301161354))||((b('h')>(-43.65372607478519*b('v'))+209.41654907810485)&&(b('h')<(-11433.100423818365*b('v'))+6504.023197860868)&&(b('h')<(52.75476688685699*b('v'))+209.3760200216838))||((b('h')>(26.243531044391943*b('v'))+170.78642497548128)&&(b('h')<(-43.65372607478519*b('v'))+209.41654907810485)&&(b('h')>(-1107.3553634247025*b('v'))+209.86371739648635))||((b('h')>(295.7226981444027*b('v'))+21.853346666047287)&&(b('h')<(26.243531044391943*b('v'))+170.78642497548128)&&(b('h')>(8.433335884642577*b('v'))+171.4003760014821))||((b('h')<(8.433335884642577*b('v'))+171.4003760014821)&&(b('h')>(-31.37019423910757*b('v'))+172.77247877400865)&&(b('h')>(82.71930111287884*b('v'))+132.73119126796098))||((b('h')<(-31.37019423910757*b('v'))+172.77247877400865)&&(b('h')>(-115.8110462176276*b('v'))+175.68331423895395)&&(b('h')>(4.932732579069547*b('v'))+160.0314641384984))||((b('h')<(-115.8110462176276*b('v'))+175.68331423895395)&&(b('h')>(-212.72738738403356*b('v'))+179.02420335115374)&&(b('h')>(7.045573926497733*b('v'))+159.75757941842787))"},
   {"bands":"SWIR2,Green,Blue", "expression":"((b('s')>(0.3402310087582287*b('v'))+0.6878785247108777)&&(b('s')<(-0.22139589479141922*b('v'))+1.0009733932691036)&&(b('s')<(114.04465599671092*b('v'))+0.38090113543454673))||((b('s')>(11.178032732580114*b('v'))-5.353961858528813)&&(b('s')<(0*b('v'))+0.9997719738616231)&&(b('s')>(-0.22139589479141922*b('v'))+1.0009733932691036))||((b('s')>(-6.555760168973008*b('v'))+0.706496211475811)&&(b('s')>(0.9781716036464391*b('v'))+0.33224042147527677)&&(b('s')<(0.3402310087582287*b('v'))+0.6878785247108777))||((b('s')>(0.19217317709040418*b('v'))+0.37128569968432384)&&(b('s')>(1.539711633483847*b('v'))+0.019193983135302795)&&(b('s')<(0.9781716036464391*b('v'))+0.33224042147527677))||((b('s')<(0.19217317709040418*b('v'))+0.37128569968432384)&&(b('s')>(-0.21980966748266745*b('v'))+0.3917513701490769)&&(b('s')>(0.4354503844174411*b('v'))+0.307720990923226))"},
-  ]
+]
 sensors = [
   {"name":"Landsat 5", "collectionid":"LANDSAT/L5_L1T_TOA", "startDate":"8/13/1983", "endDate":"10/15/1984", "Blue":"10", "Green":"20", "Red":"30", "NIR":"40", "SWIR1":"50", "SWIR2":"70", "TIR":"60"},
   {"name":"Landsat 7", "collectionid":"LANDSAT/LE7_L1T_TOA", "startDate":"8/13/2013", "endDate":"10/15/2013", "Blue":"B1", "Green":"B2", "Red":"B3", "NIR":"B4", "SWIR1":"B5", "SWIR2":"B7", "TIR":"B6_VCID_2"},
@@ -308,6 +308,17 @@ def detectWater(image):
     # add a band for the temperature mask
     if applyTemperatureMask:
         image = image.addBands(ee.call('Image.not', image.expression("b('" + sensor['TIR'] + "')<" + str(upperSceneTempThreshold) + "&&b('" + sensor['TIR'] + "')>" + str(lowerSceneTempThreshold))).select([sensor['TIR']], ["isTooHotOrCold"]))
+    # add a band for the barerock mask
+    if applyBareRockMask:
+        landsat_collection = ee.ImageCollection("LANDSAT/LC8_L1T_TOA").filterDate(datetime.datetime(2013, 4, 1), datetime.datetime(2014, 4, 1)).filterBounds(image.geometry())
+        image = image.addBands(landsat_collection.select([sensor['TIR']], ["rock_temp_ok"]).max().expression('b("rock_temp_ok")>' + str(annualMaxTempThreshold)))
+        bandnames = getGEEBandNames("NIR,Red", sensor).split(",")
+        ndvi_images = []
+        for feature in landsat_collection.getInfo()['features']:
+            ndvi_images.append(ee.Image(feature['id']).normalizedDifference([bandnames[0], bandnames[1]]))
+        landsat_collection_ndvi = ee.ImageCollection(ndvi_images)
+        image = image.addBands(landsat_collection_ndvi.max().expression('b("nd")<' + str(annualMaxNDVIThreshold)).select(["nd"], ["rock_ndvi_ok"]))
+        image = image.addBands(image.expression("b('rock_temp_ok')==1&&b('rock_ndvi_ok')==1").select(['rock_temp_ok'], ['isRock']))
     # add a band for the total mask - this adds all bands with the prefix 'is' 
     maskbands = [b for b in image.bandNames().getInfo() if b[:2] == "is"]
     image = image.addBands(ee.call('Image.not', image.select(maskbands).reduce(ee.Reducer.anyNonZero())).select(["any"], ["detectArea"]))
