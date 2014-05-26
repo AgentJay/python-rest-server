@@ -317,7 +317,8 @@ def detectWater(image):
         for feature in landsat_collection.getInfo()['features']:
             ndvi_images.append(ee.Image(feature['id']).normalizedDifference([bandnames[0], bandnames[1]]))
         landsat_collection_ndvi = ee.ImageCollection(ndvi_images)
-        image = image.addBands(landsat_collection_ndvi.max().expression('b("nd")<' + str(annualMaxNDVIThreshold)).select(["nd"], ["rock_ndvi_ok"]))
+        isrock = landsat_collection_ndvi.max().clip(image.geometry())
+        image = image.addBands(isrock.expression('b("nd")<' + str(annualMaxNDVIThreshold)).select(["nd"], ["rock_ndvi_ok"]))
         image = image.addBands(image.expression("b('rock_temp_ok')==1&&b('rock_ndvi_ok')==1").select(['rock_temp_ok'], ['isRock']))
     # add a band for the total mask - this adds all bands with the prefix 'is' 
     maskbands = [b for b in image.bandNames().getInfo() if b[:2] == "is"]
