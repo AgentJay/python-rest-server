@@ -654,13 +654,10 @@ class gee_WMS_image:
                 ll_x, ll_y, ur_x, ur_y = wmsParameters.bbox.split(",")
             else:
                 ll_x, ll_y, ur_x, ur_y = wmsParameters.bbox.split(",")  # same for the moment
-            # SET THE MIN/MAX VALUES
-            layerParameters.setdefault("min", 0)
-            layerParameters.setdefault("max", 0.7)
             # GET THE IMAGE THUMBNAIL 
-            logging.info("Request to get a Google Earth Engine image with the following parameters: ll_x=" + ll_x + "  ll_y=" + ll_y + " ur_x=" + ur_x + " ur_y=" +  ur_y + " crs=" + wmsParameters.crs + " width="+ str(wmsParameters.width) + " height="+ str(wmsParameters.height) + " layerParameters=" +  str(layerParameters))
+            logging.info("GEE image request: ll_x=" + ll_x + "  ll_y=" + ll_y + " ur_x=" + ur_x + " ur_y=" +  ur_y + " crs=" + wmsParameters.crs + " width="+ str(wmsParameters.width) + " height="+ str(wmsParameters.height) + " layerParameters=" +  str(layerParameters))
             output_thumbnail = earthEngine.getImage(float(ll_x), float(ll_y), float(ur_x), float(ur_y), wmsParameters.crs, wmsParameters.width, wmsParameters.height, layerParameters)
-            logging.info("Request to get image complete")
+            logging.info("GEE image request complete")
             # RETURN A LINK TO THE THUMBNAIL 
             return returnThumbnailJSON(output_thumbnail)
 
