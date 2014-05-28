@@ -51,8 +51,11 @@ for path in range(1, 234):  # 1, 234
                 print "No scenes found for path: " + str(path) + " row: " + str(row) + "\n"
         waterDetectionsCollection = ee.ImageCollection(waterDetections)
         waterpoints = waterDetectionsCollection.map(getpoints).flatten()
-        print str(len(waterpoints.getInfo()['features'])) + " water points detected in path " + str(path)
-        longLats = [(c['geometry']['coordinates'][0], c['geometry']['coordinates'][1]) for c in waterpoints.getInfo()['features']]
+        try:
+            print str(len(waterpoints.getInfo()['features'])) + " water points detected in path " + str(path)
+            longLats = [(c['geometry']['coordinates'][0], c['geometry']['coordinates'][1]) for c in waterpoints.getInfo()['features']]
+        except (EEException) as e:
+            print e
         count = 1
         if len(longLats):
             for lon, lat in longLats:
@@ -60,5 +63,5 @@ for path in range(1, 234):  # 1, 234
                 conn.cur.execute(sql2)
                 count = count + 1
             print '\tTotal points: ' + str(count - 1) 
-    except () as e:
+    except (EEException) as e:
         print e
