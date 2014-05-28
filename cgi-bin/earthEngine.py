@@ -1,5 +1,5 @@
 # Python module that wraps all of the Google Earth Engine functionality. This class returns all results as dictionaries either for internal Python use or for returning in other formats to the web
-import sys, ee, cPickle, utilities, math, datetime, time, logging
+import sys, ee, cPickle, utilities, math, datetime, time
 from dbconnect import google_earth_engine
 from orderedDict import OrderedDict
 from ee import EEException
@@ -16,7 +16,6 @@ annualMaxTempThreshold = 310  # Threshold for the max annual temperature above w
 annualMaxNDVIThreshold = 0.14  # Threshold for the max annual NDVI below which bare rock will be present
 lowerSceneTempThreshold = 272.15  # lower temperature threshold for the scene
 upperSceneTempThreshold = 308  # upper temperature threshold for the scene
-temperatureDifferenceThreshold = 9  # Pixels with a day/night temperature difference greater than this threshold will be excluded
 sunElevationThreshold = 42  # Landsat scenes with a solar elevation angle greater than this angle will be included
 waterDetectExpressions = [
   {"bands":"SWIR2,NIR,Red", "expression":"((b('h')<(3.038667895460303*b('v'))+236.62216730574633)&&(b('h')<(10796.714793390856*b('v'))+204.85937891753062)&&(b('h')>(52.75476688685699*b('v'))+209.3760200216838))||((b('h')>(3.038667895460303*b('v'))+236.62216730574633)&&(b('h')<(2.0464628168010686*b('v'))+237.16593011613543)&&(b('h')<(9.076683306759795*b('v'))+236.60439910485127))||((b('h')<(-0.24666028009321075*b('v'))+238.42264113944557)&&(b('h')<(9.88710145914933*b('v'))+236.539667859889)&&(b('h')>(2.0464628168010686*b('v'))+237.1659301161354))||((b('h')>(-43.65372607478519*b('v'))+209.41654907810485)&&(b('h')<(-11433.100423818365*b('v'))+6504.023197860868)&&(b('h')<(52.75476688685699*b('v'))+209.3760200216838))||((b('h')>(26.243531044391943*b('v'))+170.78642497548128)&&(b('h')<(-43.65372607478519*b('v'))+209.41654907810485)&&(b('h')>(-1107.3553634247025*b('v'))+209.86371739648635))||((b('h')>(295.7226981444027*b('v'))+21.853346666047287)&&(b('h')<(26.243531044391943*b('v'))+170.78642497548128)&&(b('h')>(8.433335884642577*b('v'))+171.4003760014821))||((b('h')<(8.433335884642577*b('v'))+171.4003760014821)&&(b('h')>(-31.37019423910757*b('v'))+172.77247877400865)&&(b('h')>(82.71930111287884*b('v'))+132.73119126796098))||((b('h')<(-31.37019423910757*b('v'))+172.77247877400865)&&(b('h')>(-115.8110462176276*b('v'))+175.68331423895395)&&(b('h')>(4.932732579069547*b('v'))+160.0314641384984))||((b('h')<(-115.8110462176276*b('v'))+175.68331423895395)&&(b('h')>(-212.72738738403356*b('v'))+179.02420335115374)&&(b('h')>(7.045573926497733*b('v'))+159.75757941842787))"},
@@ -32,7 +31,7 @@ class GoogleEarthEngineError(Exception):
     pass  
  
 def getSensorInformation(scene):  # returns the sensor information based on the passed scene
-    logging.info(scene.getInfo().keys())
+#     logging.info(scene.getInfo().keys())
     if "SENSOR_ID" not in scene.getInfo()['properties'].keys():
         return None
     else:
@@ -61,7 +60,7 @@ def getGEEBandNames(bands, sensor):  # gets the corresponding gee band names fro
     return ",".join([b for b in geebandnames])
         
 def getImage(ll_x, ll_y, ur_x, ur_y, crs, width, height, layerParameters):  # main method to retrieve a url for an image generated from google earth engine 
-    logging.basicConfig(filename='../../htdocs/mstmp/earthEngine.log', level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s',)
+#     logging.basicConfig(filename='../../htdocs/mstmp/earthEngine.log', level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s',)
     authenticate()
     region = getBoundingBoxLL(ll_x, ll_y, ur_x, ur_y, crs)
     if layerParameters['sceneid'] == 'collection':
@@ -77,10 +76,10 @@ def getImage(ll_x, ll_y, ur_x, ur_y, crs, width, height, layerParameters):  # ma
                 scene = landsat_collection.median()
                 sensorinfo = getSensorInformation(ee.Image(landsat_collection.getInfo()['features'][0]['id']))  # get the scene metadata from the first scene in the collection
             else:
-                logging.error("getImage: No matching scenes")
+#                 logging.error("getImage: No matching scenes")
                 raise GoogleEarthEngineError("getImage: No matching scenes")
         except (GoogleEarthEngineError):
-            logging.error("Google Earth Engine Services Error: " + str(sys.exc_info()))
+#             logging.error("Google Earth Engine Services Error: " + str(sys.exc_info()))
             return "Google Earth Engine Services Error: " + str(sys.exc_info())
     else:
         try:
@@ -88,7 +87,7 @@ def getImage(ll_x, ll_y, ur_x, ur_y, crs, width, height, layerParameters):  # ma
             scene = ee.Image(layerParameters['sceneid'])
             sensorinfo = getSensorInformation(scene)
         except (EEException):
-            logging.error("Google Earth Engine Services Error: " + str(sys.exc_info()))
+#             logging.error("Google Earth Engine Services Error: " + str(sys.exc_info()))
             return "Google Earth Engine Services Error: " + str(sys.exc_info())
     return getSceneImage(scene, sensorinfo, region, width, height, layerParameters)
 
@@ -285,7 +284,7 @@ def detectWater(image):
     image = image.addBands(image.normalizedDifference([sensor['NIR'], sensor['Red']]).select(["nd"], ["ndvi"]))
     # add a band for the cloud mask
     if applyCloudMask:
-        print "applyCloudMask=True"
+#         print "applyCloudMask=True"
         # add a band for areas where the temperature is low enough for cloud
         image = image.addBands(image.expression("b('" + sensor['TIR'] + "')<" + str(lowerSceneTempThreshold)).select([sensor['TIR']], ["cloud_temp_ok"]))
         # add a band for areas where the ndvi is low enough for cloud
@@ -300,22 +299,22 @@ def detectWater(image):
         image = image.addBands(cloudMask.convolve(ee.Kernel.fixed(5, 5, [[0, 0, 1, 0, 0], [0, 1, 1, 1, 0], [1, 1, 1, 1, 1], [0, 1, 1, 1, 0], [0, 0, 1, 0, 0]])).expression("b('isCloud')>0"))
     # add a band for the slope mask
     if applySlopeMask:
-        print "applySlopeMask=True"
+#         print "applySlopeMask=True"
         terrain = ee.call('Terrain', ee.Image('srtm90_v4')).clip(image.geometry())
         slope_radians = terrain.select(['slope']).expression("(b('slope')*" + str(math.pi) + ")/180")
         slope_areas = slope_radians.expression("(b('slope')>" + str(slopeMaskThreshold) + ")")
         image = image.addBands(slope_areas.select(["slope"], ["isSteep"]))
     # add a band for the ndvi mask
     if applyNDVIMask:
-        print "applyNDVIMask=True"
+#         print "applyNDVIMask=True"
         image = image.addBands(image.expression("b('ndvi')>" + str(ndviMaskThreshold)).select(["ndvi"], ["isGreen"]))
     # add a band for the temperature mask
     if applyTemperatureMask:
-        print "applyTemperatureMask=True"
+#         print "applyTemperatureMask=True"
         image = image.addBands(ee.call('Image.not', image.expression("b('" + sensor['TIR'] + "')<" + str(upperSceneTempThreshold) + "&&b('" + sensor['TIR'] + "')>" + str(lowerSceneTempThreshold))).select([sensor['TIR']], ["isTooHotOrCold"]))
     # add a band for the barerock mask
     if applyBareRockMask:
-        print "applyBareRockMask=True"
+#         print "applyBareRockMask=True"
         landsat_collection = ee.ImageCollection("LANDSAT/LC8_L1T_TOA").filterDate(datetime.datetime(2013, 4, 1), datetime.datetime(2014, 4, 1)).filterBounds(image.geometry())
         image = image.addBands(landsat_collection.select([sensor['TIR']], ["rock_temp_ok"]).max().expression('b("rock_temp_ok")>' + str(annualMaxTempThreshold)))
         bandnames = getGEEBandNames("NIR,Red", sensor).split(",")
