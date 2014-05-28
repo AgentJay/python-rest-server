@@ -6,11 +6,11 @@ sunElevationThreshold = 42  # Landsat scenes with a solar elevation angle lower 
 earthEngine.authenticate() 
 # iterate through the validation sites
 conn = dbconnect("species_especies_schema")
-# conn.cur.execute("delete from gee_validated_sites;")
-# sql = "SELECT DISTINCT landsat_wrs2.path,  landsat_wrs2.row,  st_x(st_centroid(landsat_wrs2.geom)),  st_y(st_centroid(landsat_wrs2.geom)), l8_toa_scene_count, l8_toa_cloud_stats FROM especies.landsat_wrs2 WHERE l8_toa_scene_count>0 ORDER BY 1,2;"
-sql = "SELECT DISTINCT landsat_wrs2.path,  landsat_wrs2.row,  st_x(st_centroid(landsat_wrs2.geom)),  st_y(st_centroid(landsat_wrs2.geom)), l8_toa_scene_count, l8_toa_cloud_stats FROM especies.landsat_wrs2 WHERE l8_toa_scene_count>0 AND path>88 ORDER BY 1,2;"
+conn.cur.execute("delete from gee_validated_sites;")
+sql = "SELECT DISTINCT landsat_wrs2.path,  landsat_wrs2.row,  st_x(st_centroid(landsat_wrs2.geom)),  st_y(st_centroid(landsat_wrs2.geom)), l8_toa_scene_count, l8_toa_cloud_stats FROM especies.landsat_wrs2 WHERE l8_toa_scene_count>0 ORDER BY 1,2;"
+# sql = "SELECT DISTINCT landsat_wrs2.path,  landsat_wrs2.row,  st_x(st_centroid(landsat_wrs2.geom)),  st_y(st_centroid(landsat_wrs2.geom)), l8_toa_scene_count, l8_toa_cloud_stats FROM especies.landsat_wrs2 WHERE l8_toa_scene_count>0 AND path>8 ORDER BY 1,2;"
 conn.cur.execute(sql)
-print "Creating random water validation sites..\n"
+print "Creating random water validation sites\n"
 pathRows = conn.cur.fetchall()
 for pathRow in pathRows:
     path = pathRow[0]
@@ -39,13 +39,13 @@ for pathRow in pathRows:
             print "Using scene " + fullsceneid 
             scene = ee.Image(fullsceneid)
             print "Water detection"
-            detection = earthEngine.detectWater(scene)
-            bbox = scene.geometry().getInfo()['coordinates']
-            thumbnail = detection.getThumbUrl({'size': '1000', 'region': bbox, 'min':0, 'max':3, 'palette': '444444,000000,ffffff,0000ff'})
-            print "Water image: " + thumbnail
-            water = detection.expression("b('class')==3")
-            water = water.mask(water)
             try: 
+                detection = earthEngine.detectWater(scene)
+                bbox = scene.geometry().getInfo()['coordinates']
+                thumbnail = detection.getThumbUrl({'size': '1000', 'region': bbox, 'min':0, 'max':3, 'palette': '444444,000000,ffffff,0000ff'})
+                print "Water image: " + thumbnail
+                water = detection.expression("b('class')==3")
+                water = water.mask(water)
                 print "Getting random points in bbox " + str(bbox)[:106] + ".."
                 random_points = ee.FeatureCollection.randomPoints(scene.geometry(), 500)
                 print "Getting random points classified as water.."
