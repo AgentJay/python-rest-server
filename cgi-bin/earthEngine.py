@@ -1,5 +1,5 @@
 # Python module that wraps all of the Google Earth Engine functionality. This class returns all results as dictionaries either for internal Python use or for returning in other formats to the web
-import sys, ee, cPickle, utilities, math, datetime, time, logging
+import sys, ee, cPickle, utilities, math, datetime, time
 from dbconnect import google_earth_engine
 from orderedDict import OrderedDict
 from ee import EEException
@@ -32,7 +32,7 @@ class GoogleEarthEngineError(Exception):
     pass  
  
 def getSensorInformation(scene):  # returns the sensor information based on the passed scene
-    logging.info(scene.getInfo().keys())
+#     logging.info(scene.getInfo().keys())
     if "SENSOR_ID" not in scene.getInfo()['properties'].keys():
         return None
     else:
@@ -61,7 +61,7 @@ def getGEEBandNames(bands, sensor):  # gets the corresponding gee band names fro
     return ",".join([b for b in geebandnames])
         
 def getImage(ll_x, ll_y, ur_x, ur_y, crs, width, height, layerParameters):  # main method to retrieve a url for an image generated from google earth engine 
-    logging.basicConfig(filename='../../htdocs/mstmp/earthEngine.log', level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s',)
+#     logging.basicConfig(filename='../../htdocs/mstmp/earthEngine.log', level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s',)
     authenticate()
     region = getBoundingBoxLL(ll_x, ll_y, ur_x, ur_y, crs)
     if layerParameters['sceneid'] == 'collection':
@@ -77,10 +77,10 @@ def getImage(ll_x, ll_y, ur_x, ur_y, crs, width, height, layerParameters):  # ma
                 scene = landsat_collection.median()
                 sensorinfo = getSensorInformation(ee.Image(landsat_collection.getInfo()['features'][0]['id']))  # get the scene metadata from the first scene in the collection
             else:
-                logging.error("getImage: No matching scenes")
+#                 logging.error("getImage: No matching scenes")
                 raise GoogleEarthEngineError("getImage: No matching scenes")
         except (GoogleEarthEngineError):
-            logging.error("Google Earth Engine Services Error: " + str(sys.exc_info()))
+#             logging.error("Google Earth Engine Services Error: " + str(sys.exc_info()))
             return "Google Earth Engine Services Error: " + str(sys.exc_info())
     else:
         try:
@@ -88,7 +88,7 @@ def getImage(ll_x, ll_y, ur_x, ur_y, crs, width, height, layerParameters):  # ma
             scene = ee.Image(layerParameters['sceneid'])
             sensorinfo = getSensorInformation(scene)
         except (EEException):
-            logging.error("Google Earth Engine Services Error: " + str(sys.exc_info()))
+#             logging.error("Google Earth Engine Services Error: " + str(sys.exc_info()))
             return "Google Earth Engine Services Error: " + str(sys.exc_info())
     return getSceneImage(scene, sensorinfo, region, width, height, layerParameters)
 
