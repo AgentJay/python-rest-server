@@ -1,6 +1,7 @@
 # Routine to create 10,000 water points from the water detection algorithm so we can get the accuracy of the method
 import sys, json, datetime, math, psycopg2, ee, earthEngine, random
 from dbconnect import dbconnect
+from ee import EEException
 
 def getpoints(image):
   random_points = ee.FeatureCollection.randomPoints(image.geometry(), 500)
@@ -54,14 +55,14 @@ for path in range(1, 234):  # 1, 234
         try:
             print str(len(waterpoints.getInfo()['features'])) + " water points detected in path " + str(path)
             longLats = [(c['geometry']['coordinates'][0], c['geometry']['coordinates'][1]) for c in waterpoints.getInfo()['features']]
+            count = 1
+            if len(longLats):
+                for lon, lat in longLats:
+                    sql2 = "INSERT INTO gee_validated_sites(objectid, gee_lat, gee_lng, predicted_class, sceneid, cloud_cover, sun_elevation,geom) VALUES (" + str(random.randrange(0, 100000000)) + "," + str(lat) + "," + str(lon) + ",'3','" + fullsceneid + "'," + str(mincloud) + "," + str(sceneSunElevation) + ", ST_SetSRID(ST_Point(" + str(lon) + "," + str(lat) + "),4326));"
+                    conn.cur.execute(sql2)
+                    count = count + 1
+                print '\tTotal points: ' + str(count - 1) 
         except (EEException) as e:
             print e
-        count = 1
-        if len(longLats):
-            for lon, lat in longLats:
-                sql2 = "INSERT INTO gee_validated_sites(objectid, gee_lat, gee_lng, predicted_class, sceneid, cloud_cover, sun_elevation,geom) VALUES (" + str(random.randrange(0, 100000000)) + "," + str(lat) + "," + str(lon) + ",'3','" + fullsceneid + "'," + str(mincloud) + "," + str(sceneSunElevation) + ", ST_SetSRID(ST_Point(" + str(lon) + "," + str(lat) + "),4326));"
-                conn.cur.execute(sql2)
-                count = count + 1
-            print '\tTotal points: ' + str(count - 1) 
     except (EEException) as e:
         print e
