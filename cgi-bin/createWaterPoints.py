@@ -3,24 +3,25 @@ import sys, json, datetime, math, psycopg2, ee, earthEngine, random
 from dbconnect import dbconnect
 collectionid = 'LANDSAT/LC8_L1T_TOA'
 sunElevationThreshold = 42  # Landsat scenes with a solar elevation angle lower than this angle will not be considered
-earthEngine.authenticate() 
 # iterate through the validation sites
+earthEngine.authenticate_live() 
 conn = dbconnect("species_especies_schema")
-conn.cur.execute("delete from gee_validated_sites;")
-sql = "SELECT DISTINCT landsat_wrs2.path,  landsat_wrs2.row,  st_x(st_centroid(landsat_wrs2.geom)),  st_y(st_centroid(landsat_wrs2.geom)), l8_toa_scene_count, l8_toa_cloud_stats FROM especies.landsat_wrs2 WHERE l8_toa_scene_count>0 ORDER BY 1,2;"
-# sql = "SELECT DISTINCT landsat_wrs2.path,  landsat_wrs2.row,  st_x(st_centroid(landsat_wrs2.geom)),  st_y(st_centroid(landsat_wrs2.geom)), l8_toa_scene_count, l8_toa_cloud_stats FROM especies.landsat_wrs2 WHERE l8_toa_scene_count>0 AND path>8 ORDER BY 1,2;"
+# conn.cur.execute("delete from gee_validated_sites;")
+# sql = "SELECT DISTINCT landsat_wrs2.path,  landsat_wrs2.row,  st_x(st_centroid(landsat_wrs2.geom)),  st_y(st_centroid(landsat_wrs2.geom)), l8_toa_scene_count, l8_toa_cloud_stats FROM especies.landsat_wrs2 WHERE l8_toa_scene_count>0 ORDER BY 1,2;"
+sql = "SELECT DISTINCT landsat_wrs2.path,  landsat_wrs2.row,  st_x(st_centroid(landsat_wrs2.geom)),  st_y(st_centroid(landsat_wrs2.geom)), l8_toa_scene_count, l8_toa_cloud_stats FROM especies.landsat_wrs2 WHERE l8_toa_scene_count>0 AND path>76 ORDER BY 1,2;"
 conn.cur.execute(sql)
 print "Creating random water validation sites\n"
 pathRows = conn.cur.fetchall()
+counter = 1
 for pathRow in pathRows:
     path = pathRow[0]
     row = pathRow[1]
-    print "path: " + str(path) + " row: " + str(row) + "\n========================================================================================================="
+    print "path: " + str(path) + " row: " + str(row) + " (count " + str(counter) + ")\n========================================================================================================="
     lng = pathRow[2]
     lat = pathRow[3]
     sceneCount = pathRow[4]
     cloudStats = pathRow[5]
-    scenes = earthEngine.getScenesForPoint(collectionid, lng, lat, 'EPSG:4326')
+    scenes = earthEngine.getScenesForPoint(collectionid, lng, lat, 'EPSG:4326')  
     mincloud = 100
     mincloudid = ''
     if len(scenes['features']) > 0:
@@ -41,21 +42,23 @@ for pathRow in pathRows:
             print "Water detection"
             try: 
                 detection = earthEngine.detectWater(scene)
-                bbox = scene.geometry().getInfo()['coordinates']
-                thumbnail = detection.getThumbUrl({'size': '1000', 'region': bbox, 'min':0, 'max':3, 'palette': '444444,000000,ffffff,0000ff'})
-                print "Water image: " + thumbnail
+#                 bbox = scene.geometry().getInfo()['coordinates']
+#                 thumbnail = detection.getThumbUrl({'size': '1000', 'region': bbox, 'min':0, 'max':3, 'palette': '444444,000000,ffffff,0000ff'})
+#                 print "Water image: " + thumbnail
                 water = detection.expression("b('class')==3")
                 water = water.mask(water)
-                print "Getting random points in bbox " + str(bbox)[:106] + ".."
+#                 print "Getting random points in bbox " + str(bbox)[:106] + ".."
                 random_points = ee.FeatureCollection.randomPoints(scene.geometry(), 500)
                 print "Getting random points classified as water.."
                 random_points_quantised = water.reduceRegions(random_points, ee.Reducer.first()).filter(ee.Filter.neq('first', None))
                 print "Getting lat/long data.."
+                t1 = datetime.datetime.now()
                 features = random_points_quantised.getInfo()['features']
+                t2 = datetime.datetime.now()
+                print "Duration " + str(t2 - t1)
                 longLats = [(c['geometry']['coordinates'][0], c['geometry']['coordinates'][1]) for c in features]
                 count = 1
                 if len(longLats):
-                    print "Getting random points classified as water.."
                     for lon, lat in longLats:
                         sql2 = "INSERT INTO gee_validated_sites(objectid, gee_lat, gee_lng, predicted_class, sceneid, cloud_cover, sun_elevation,geom) VALUES (" + str(random.randrange(0, 100000000)) + "," + str(lat) + "," + str(lon) + ",'3','" + fullsceneid + "'," + str(mincloud) + "," + str(sceneSunElevation) + ", ST_SetSRID(ST_Point(" + str(lon) + "," + str(lat) + "),4326));"
                         conn.cur.execute(sql2)
@@ -71,3 +74,4 @@ for pathRow in pathRows:
             print "No scenes found with sun elevation > " + str(sunElevationThreshold) + " degrees\n"
     else:
         print "No scenes found for path: " + str(path) + " row: " + str(row) + "\n"
+    counter = counter + 1

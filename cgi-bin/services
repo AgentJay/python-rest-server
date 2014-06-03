@@ -27,7 +27,6 @@ urls = (
   "/updatehsv", "updatehsv",
   "/admin/get_admin_functions", "get_admin_functions",
   "/admin/populate_species_names_table", "populate_species_names_table",
-  "/gee/getAPIVersion", "getAPIVersion",
   "/gee/getDatesForBB", "getDatesForBB",
   "/gee/getDatesForPoint", "getDatesForPoint",
   "/gee/getScenesForPoint", "getScenesForPoint",
@@ -279,17 +278,6 @@ def callservice(schemaname, servicename, querystring):
         
         elif format == 'xml':
             root = etree.Element('results')
-        #            THERE ARE ISSUES WITH THE XML SERIALISER PARSING INTEGERS AND IN THE FIELD TYPES THERE ARE INTEGERS SO THE METADATADICT OBJECT CAUSES THE XML PARSER TO FAIL AT THE MOMENT SO LEAVING OUT METADATA
-        #            if (includemetadata.lower() == 'true'):
-        #                return metadatadict
-        #                metadatanode = xml.Element('metadata', metadatadict)
-        #                root.append(metadatanode)
-        #                xmlfieldsdicts = [dict([("name", d.name), ("type", str(d.type_code))]) for d in conn.cur.description if (d.name in fields)] # element tree cannot serialise integers so we have to convert these to strings
-        #                fieldselements = [xml.Element('field', dictionary) for dictionary in xmlfieldsdicts]
-        #                fieldsnode = xml.Element('fields')
-        #                for fieldelement in fieldselements:
-        #                    fieldsnode.append(fieldelement)
-        #                metadatanode.append(fieldsnode)
             recordsdicts = [OrderedDict([(allfields[col], str(row[col]).decode('utf-8')) for col in range(fieldcount) if (col in colsRequired) and str(row[col]) != 'None']) for row in rows ]  #
             recordselements = [etree.Element('record', element) for element in recordsdicts]
             recordsnode = etree.Element(rootName)
@@ -501,7 +489,6 @@ def runHadoopQuery(conn, functionname, params):
 
 #===============================================   AUTHENTICATION SERVER =============================================================================================================================================
 
-
 def requiresAuthentication(servicename):
     if (servicename[:3] in ['set']) | ((servicename[:4] == '_set') & (web.ctx.host == 'dopa-services.jrc.it')):
         return True
@@ -595,10 +582,6 @@ class svg2png:
 
 #===============================================   GOOGLE EARTH ENGINE SERVER =============================================================================================================================================
 
-class getAPIVersion:
-    def GET(self):
-        return 'wibble'
-    
 class getDatesForBB:  # http://dopa-services.jrc.it/services/gee/getDatesForBB?BBOX=114,5,115,6&CRS=EPSG:4326
     def GET(self):
         ll_x, ll_y, ur_x, ur_y = web.input()['BBOX'].split(",")
@@ -655,7 +638,7 @@ class gee_WMS_image:
             else:
                 ll_x, ll_y, ur_x, ur_y = wmsParameters.bbox.split(",")  # same for the moment
             # GET THE IMAGE THUMBNAIL 
-            logging.info("GEE image request: ll_x=" + ll_x + "  ll_y=" + ll_y + " ur_x=" + ur_x + " ur_y=" +  ur_y + " crs=" + wmsParameters.crs + " width="+ str(wmsParameters.width) + " height="+ str(wmsParameters.height) + " layerParameters=" +  str(layerParameters))
+            logging.info("GEE image request: ll_x=" + ll_x + "  ll_y=" + ll_y + " ur_x=" + ur_x + " ur_y=" + ur_y + " crs=" + wmsParameters.crs + " width=" + str(wmsParameters.width) + " height=" + str(wmsParameters.height) + " layerParameters=" + str(layerParameters))
             output_thumbnail = earthEngine.getImage(float(ll_x), float(ll_y), float(ur_x), float(ur_y), wmsParameters.crs, wmsParameters.width, wmsParameters.height, layerParameters)
             logging.info("GEE image request complete")
             # RETURN A LINK TO THE THUMBNAIL 
@@ -746,97 +729,6 @@ class createValidationSites:  # http://dopa-services.jrc.it/services/gee/createV
                         
         except (DopaServicesError, GoogleEarthEngineError):
             return "Google Earth Engine Error: " + str(sys.exc_info())        
-
-class geeWMS:
-    def GET(self):
-        try:
-            gee_authenticate_stored()  # isAuthenticated using stored credentials and API definitions
-            self.parseWMSParams(web.input()) 
-            if self.wmsParams.version == "1.3.0":  # get the ll and ur x/y coordinates
-                ll_x, ll_y, ur_x, ur_y = self.wmsParams.bbox.split(",")
-            else:
-                ll_x, ll_y, ur_x, ur_y = self.wmsParams.bbox.split(",")  # same for the moment            
-            self.bounding_box = earthEngine.getBoundingBoxLL(ll_x, ll_y, ur_x, ur_y, self.wmsParams.crs)  # get the bounding box as lat/long suitable for sending to GEE API
-            d, m, y = [int(s) for s in self.date.split("-")]
-            collection = ee.ImageCollection(self.dataset).filterBounds(ee.Feature.Polygon([self.bounding_box])).filterDate(datetime.datetime(y, m, d - 1), datetime.datetime(y, m, d + 1))
-            
-            # cloud correction
-            if self.remove_cloud:
-                image = self.cloudCorrection(collection)
-            else:
-                image = collection.median()
-            
-            # illumination correction
-            if self.remove_illumination:
-                image = self.illuminationCorrection(image)
-                
-            # colour and contrast adjustment
-            if (self.bands == "B4,B3,B2") or (self.bands == "B2,B3,B4"): 
-                image = ee.Image.cat([image.expression("b('B4')+770"), image.select('B3'), image.expression("b('B2')-1230")]);
-            min = 7000
-            max = 10000
-            
-            # create the thumbnail
-            collection_image_thumbnail = image.getThumbUrl({'bands': self.bands, 'size': self.wmsParams.width + 'x' + self.wmsParams.height, 'min': min, 'max': max, 'region': self.bounding_box})
-            
-#             web.header("Content-Type", "images/png")                #returns as a file
-            return urllib.urlopen(collection_image_thumbnail)  # streams the image back to the client
-        
-        except (DopaServicesError, ProgrammingError, EEException):
-            return "DOPA Services Error: " + str(sys.exc_info())        
-        
-    def getTestImage(self):
-        image = ee.Image("LANDSAT/LC8_L1T/LC81970502013330LGN00")
-        image_thumbnail = image.getThumbUrl({'bands': 'B6,B5,B4', 'size': '600'})
-        return urllib.urlopen(image_thumbnail)  # streams the image back to the client
-               
-    def parseWMSParams(self, parameters):
-        # example parameters {'STYLES': u'', 'LAYERS': u'1', 'SERVICE': u'WMS', 'CRS': u'EPSG:102100', 'FORMAT': u'image/png', 'REQUEST': u'GetMap', 'HEIGHT': u'400', 'WIDTH': u'1904', 'VERSION': u'1.3.0', 'BBOX': u'-24867967,734592,12389274,8561744', 'TRANSPARENT': u'TRUE'}>
-        # get the gee params
-        self.wmsParams = wmsParams(parameters)
-        gee_params = self.wmsParams.layers.split("!")
-        self.dataset = gee_params[0]
-        self.date = gee_params[1]
-        self.remove_cloud = (gee_params[2] == "1")
-        self.remove_illumination = (gee_params[3] == "1")
-        self.bands = gee_params[4]
-        
-    def illuminationCorrection(self, image):
-        # accepts either a single scene which will have the sun elevation and azimuth already populated, or a collection image which will need to have the sun elevation and azimuth manually populated and accessed via the properties
-        try:
-            terrain = ee.call('Terrain', ee.Image('srtm90_v4'))
-            # solar_zenith = (90 - image.getInfo()['properties']['SUN_ELEVATION'])
-            solar_zenith = 31.627850000000002
-            # solar_azimuth = image.getInfo()['properties']['SUN_AZIMUTH']
-            solar_azimuth = 50.377735
-            solar_zenith_radians = (solar_zenith * math.pi) / 180
-            slope_radians = terrain.select(['slope']).expression("(b('slope')*" + str(math.pi) + ")/180")
-            aspect = terrain.select(['aspect'])
-            cosZ = math.cos(solar_zenith_radians)
-            cosS = slope_radians.cos()
-            slope_illumination = cosS.expression("b('slope')*(" + str(cosZ) + ")").select(['slope'], ['b1'])
-            sinZ = math.sin(solar_zenith_radians)
-            sinS = slope_radians.sin()
-            azimuth_diff_radians = aspect.expression("((b('aspect')-" + str(solar_azimuth) + ")*" + str(math.pi) + ")/180")
-            cosPhi = azimuth_diff_radians.cos()
-            aspect_illumination = cosPhi.multiply(sinS).expression("b('aspect')*" + str(sinZ)).select(['aspect'], ['b1'])
-            ic = slope_illumination.add(aspect_illumination)
-            return image.expression("((image * (cosZ + coeff)) / (ic + coeff)) + offsets", {'image': image.select('B4', 'B3', 'B2'), 'ic': ic, 'cosZ': cosZ, 'coeff': [12, 9, 25], 'offsets': [0, 0, 0]})
-        except (DopaServicesError, ProgrammingError, EEException):
-            return "DOPA Services Error: " + str(sys.exc_info())        
-
-    def cloudCorrection(self, collection):
-        cloudless_images = []
-        lsb_val = int(math.pow(2, 14))
-        msb_val = int(math.pow(2, 15))
-        for feature in collection.getInfo()['features']:
-            image = ee.Image(feature['id'])
-            cloud = image.expression("(2*(b('BQA')&" + str(msb_val) + ")/" + str(msb_val) + ")+((b('BQA')&" + str(lsb_val) + ")/" + str(lsb_val) + ")")
-            cloud_mask = cloud.expression("(b('constant')==1)")
-            masked = image.mask(cloud_mask)
-            output = masked.toUint16().focal_median()
-            cloudless_images.append(output)
-        return ee.ImageCollection(cloudless_images).median()
     
 class wmsParams:  # class to retrieve the standard wms parameters
     def __init__(self, parameters):
@@ -872,32 +764,7 @@ def createGoogleAPIJson():
     cPickle.dump(ee.ApiFunction._api, f)
     f.close()
 
-def gee_authenticate():
-    _google_earth_engine = google_earth_engine()  # isAuthenticated directly with GEE API
-    ee.Initialize(ee.ServiceAccountCredentials(_google_earth_engine.MY_SERVICE_ACCOUNT, _google_earth_engine.MY_PRIVATE_KEY_FILE)) 
-
-def gee_authenticate_stored():
-    # initialise the authentication with Google Earth Engine
-    f_credentials = open(r'google earth engine/_credentials.pickle', 'rb')
-    ee.data.initialize(cPickle.load(f_credentials))
-    f_credentials.close()
-    
-    # initialise the API
-    f_api = open(r'google earth engine/_api.pickle', 'rb')  # pickle of the gee api functions in json format
-    ee.ApiFunction._api = cPickle.load(f_api)
-    f_api.close()
-    ee.Image.initialize()
-    ee.Feature.initialize()
-    ee.Collection.initialize()
-    ee.ImageCollection.initialize()
-    ee.FeatureCollection.initialize()
-    ee.Filter.initialize()
-    ee.Geometry.initialize()
-    ee.String.initialize()
-    ee._InitializeGeneratedClasses()
-    ee._InitializeUnboundMethods()
-
-def rgbTohsv(r, g, b):
+def rgbTohsv(r, g, b):  # utility function to convert rgb values to hsv values
     maxVal = float(max(r, g, b))
     minVal = float(min(r, g, b))
     val = maxVal

@@ -129,7 +129,7 @@ def getSceneImage(scene, sensorinfo, region, width, height, layerParameters):
             return output_thumbnail
         if 'detectWater' in layerParameters.keys():
             if layerParameters['detectWater']:
-                detection = detectWater(scene)
+                detection = detectWater(scene, sensorinfo)
                 output_thumbnail = detection.getThumbUrl({'palette': '444444,000000,ffffff,0000ff', 'size': width + 'x' + height , 'min': 0, 'max': 3, 'region': region})
                 return output_thumbnail
         output_thumbnail = scene.getThumbUrl({'bands': bands, 'size': width + 'x' + height , 'min': layerParameters['min'], 'max': layerParameters['max'], 'region': region})
@@ -276,16 +276,17 @@ def dateToDateTime(_date):  # converts a Google date into a Python datetime, e.g
     d = _date.split("-")
     return datetime.datetime(int(d[0]), int(d[1]), int(d[2]))
 
-def detectWater(image):
-    # get the sensor information from the scene 
-    sensor = getSensorInformation(image)
+def detectWater(image, sensor=None):
+    # get the sensor information from the scene if it isnt already known
+    if not sensor:
+        sensor = getSensorInformation(image)
     # add a band for no data areas
     image = image.addBands(ee.call('Image.not', image.expression("b('" + sensor['TIR'] + "')>0").mask()).clip(image.geometry()).select([sensor['TIR']], ["isEmpty"]))
     # add a band for the ndvi
     image = image.addBands(image.normalizedDifference([sensor['NIR'], sensor['Red']]).select(["nd"], ["ndvi"]))
     # add a band for the cloud mask
     if applyCloudMask:
-        print "applyCloudMask=True"
+#         print "applyCloudMask=True"
         # add a band for areas where the temperature is low enough for cloud
         image = image.addBands(image.expression("b('" + sensor['TIR'] + "')<" + str(lowerSceneTempThreshold)).select([sensor['TIR']], ["cloud_temp_ok"]))
         # add a band for areas where the ndvi is low enough for cloud
@@ -300,22 +301,22 @@ def detectWater(image):
         image = image.addBands(cloudMask.convolve(ee.Kernel.fixed(5, 5, [[0, 0, 1, 0, 0], [0, 1, 1, 1, 0], [1, 1, 1, 1, 1], [0, 1, 1, 1, 0], [0, 0, 1, 0, 0]])).expression("b('isCloud')>0"))
     # add a band for the slope mask
     if applySlopeMask:
-        print "applySlopeMask=True"
+#         print "applySlopeMask=True"
         terrain = ee.call('Terrain', ee.Image('srtm90_v4')).clip(image.geometry())
         slope_radians = terrain.select(['slope']).expression("(b('slope')*" + str(math.pi) + ")/180")
         slope_areas = slope_radians.expression("(b('slope')>" + str(slopeMaskThreshold) + ")")
         image = image.addBands(slope_areas.select(["slope"], ["isSteep"]))
     # add a band for the ndvi mask
     if applyNDVIMask:
-        print "applyNDVIMask=True"
+#         print "applyNDVIMask=True"
         image = image.addBands(image.expression("b('ndvi')>" + str(ndviMaskThreshold)).select(["ndvi"], ["isGreen"]))
     # add a band for the temperature mask
     if applyTemperatureMask:
-        print "applyTemperatureMask=True"
+#         print "applyTemperatureMask=True"
         image = image.addBands(ee.call('Image.not', image.expression("b('" + sensor['TIR'] + "')<" + str(upperSceneTempThreshold) + "&&b('" + sensor['TIR'] + "')>" + str(lowerSceneTempThreshold))).select([sensor['TIR']], ["isTooHotOrCold"]))
     # add a band for the barerock mask
     if applyBareRockMask:
-        print "applyBareRockMask=True"
+#         print "applyBareRockMask=True"
         landsat_collection = ee.ImageCollection("LANDSAT/LC8_L1T_TOA").filterDate(datetime.datetime(2013, 4, 1), datetime.datetime(2014, 4, 1)).filterBounds(image.geometry())
         image = image.addBands(landsat_collection.select([sensor['TIR']], ["rock_temp_ok"]).max().expression('b("rock_temp_ok")>' + str(annualMaxTempThreshold)))
         bandnames = getGEEBandNames("NIR,Red", sensor).split(",")

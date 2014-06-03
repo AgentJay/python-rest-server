@@ -754,7 +754,7 @@ $def with (header, footer)
 				CREATE OR REPLACE FUNCTION getirreplacibilityindices(IN wdpa_id integer) RETURNS TABLE(taxonomic_group character varying, irreplacibility_score double precision) AS ..
 			</div>
 			<div class="normal">
-				If you want your service to be accessible using data-aware controls you will need to supply a unique identifier with your response. By default the idProperty in the Response metadata lists the first field that is returned as the id field. So in this case you will need to ensure that the id field is returned first.
+				If your function returns all fields from a particular table (for example 'select * from &lt;tablename&gt;) then if you modify your table definition by adding fields then service call will fail. To prevent this, specify the names of the fields in the sql rather than using a wildcard *. If you want your service to be accessible using data-aware controls you will need to supply a unique identifier with your response. By default the idProperty in the Response metadata lists the first field that is returned as the id field. So in this case you will need to ensure that the id field is returned first.
 			</div>
 			<h4>Specify the field that contains a unique identifier (optional)</h4>
 			<div class="normal">
