@@ -348,12 +348,12 @@ def detectWater(image, sensor=None):
 
 def authenticate():
     # initialisation
-    f_credentials = open(r'google earth engine/_credentials.pickle', 'rb')
+    f_credentials = open('/srv/www/dopa-services/cgi-bin/google earth engine/_credentials.pickle', 'rb')
     ee.data.initialize(cPickle.load(f_credentials))
     f_credentials.close()
     
     # initialise the API
-    f_api = open(r'google earth engine/_api.pickle', 'rb')  # pickle of the gee api functions in json format
+    f_api = open('/srv/www/dopa-services/cgi-bin/google earth engine/_api.pickle', 'rb')  # pickle of the gee api functions in json format
     ee.ApiFunction._api = cPickle.load(f_api)
     f_api.close()
     ee.Image.initialize()
