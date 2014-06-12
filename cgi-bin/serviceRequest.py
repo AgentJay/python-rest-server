@@ -1,10 +1,12 @@
 # file that handles requests for data from a postgresql database and returns the data in a number of different formats
-import psycopg2, exceptions, datetime, logging, urllib, json, web
+import psycopg2, exceptions, datetime, logging, urllib, json, web, pdfkit, sys
 from psycopg2 import ProgrammingError, DataError, IntegrityError, extensions, OperationalError
 from amazon_ses import AmazonSES, EmailMessage, AmazonError
+from dbconnect import dbconnect, twilio, amazon_ses
+from twilio.rest import TwilioRestClient
 from orderedDict import OrderedDict
-from dbconnect import dbconnect
 from decimal import Decimal
+from lxml import etree
 
 class DopaServicesError(Exception):
     """Exception Class that allows the DOPA Services REST Server to raise custom exceptions"""
