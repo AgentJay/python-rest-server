@@ -5,9 +5,9 @@ from orderedDict import OrderedDict
 from ee import EEException
 # Constants
 applyCloudMask = True  # Set to 1 to apply a cloud mask
-applySlopeMask = True  # Set to 1 to apply a slope mask
-applyNDVIMask = True  # Set to 1 to apply an ndvi mask
-applyTemperatureMask = True  # Set to 1 to apply a temperature mask
+applySlopeMask = False  # Set to 1 to apply a slope mask
+applyNDVIMask = False  # Set to 1 to apply an ndvi mask
+applyTemperatureMask = False  # Set to 1 to apply a temperature mask
 applyBareRockMask = False  # Set to 1 to apply a barerock mask
 cloudNDVIThreshold = 0.11  # Pixels with an NDVI lower than this threshold may be clouds
 slopeMaskThreshold = 0.17  # Pixels with a slope greater than this threshold in radians will be excluded
@@ -286,9 +286,6 @@ def detectWater(image, sensor=None):
     image = image.addBands(image.normalizedDifference([sensor['NIR'], sensor['Red']]).select(["nd"], ["ndvi"]))
     # add a band for the cloud mask
     if applyCloudMask:
-#         print "applyCloudMask=True"
-        # add a band for areas where the temperature is low enough for cloud
-        image = image.addBands(image.expression("b('" + sensor['TIR'] + "')<" + str(lowerSceneTempThreshold)).select([sensor['TIR']], ["cloud_temp_ok"]))
         # add a band for areas where the ndvi is low enough for cloud
         image = image.addBands(image.expression("b('ndvi')<" + str(cloudNDVIThreshold)).select(["ndvi"], ["cloud_ndvi_ok"]))
         # add a band for areas where the hsv 654 is ok for cloud
@@ -297,8 +294,10 @@ def detectWater(image, sensor=None):
         # add a band for areas where the hsv 432 is ok for cloud
         image = image.addBands(convertToHsv(image, sensor['Red'] + "," + sensor['Green'] + "," + sensor['Blue']), None, True)
         image = image.addBands(image.expression("((b('h')<(-290.3647541295557*b('v'))+365.9204839911988)&&(b('h')<(335.1949426777476*b('v'))+136.9220846732972)&&(b('h')>(-23.505492887658985*b('v'))+223.42719816416374))||((b('h')<(131.3034109469229*b('v'))+211.56057983072515)&&(b('h')>(-290.3647541295557*b('v'))+365.9204839911988)&&(b('h')>(412.868927627023*b('v'))-9.581110187711033))||((b('h')<(-110.96188694961242*b('v'))+401.8358594223264)&&(b('h')<(31201.82786617771*b('v'))-11162.414442104384)&&(b('h')>(131.3034109469229*b('v'))+211.56057983072515))||((b('h')<(4.324914848340889*b('v'))+359.25883441225426)&&(b('h')>(-110.96188694961242*b('v'))+401.8358594223264)&&(b('h')>(423.77264053876735*b('v'))-18.144891467499406))||((b('h')<(-23.505492887658985*b('v'))+223.42719816416374)&&(b('h')>(-716.983867682122*b('v'))+390.66821480942525)&&(b('h')>(272.52480149100506*b('v'))+65.35762563348138))||((b('h')<(-3550.663071023035*b('v'))+2106.8029918288794)&&(b('h')<(272.52480149100506*b('v'))+65.35762563348138)&&(b('h')>(-326.4412985361954*b('v'))+262.2735506441135))||((b('h')>(-61.03523580992668*b('v'))+110.43867974751751)&&(b('h')<(-326.4412985361954*b('v'))+262.2735506441135)&&(b('h')>(-1622.2473694938608*b('v'))+688.2823866791312))||((b('h')<(-61.03523580992668*b('v'))+110.43867974751751)&&(b('h')<(1636.2739567673634*b('v'))-517.7779568562837)&&(b('h')>(188.91098090522192*b('v'))-32.551842609834154))||((b('h')<(-77.56198786778931*b('v'))+119.89338940738565)&&(b('h')<(188.91098090522192*b('v'))-32.551842609834154)&&(b('h')>(43.44906482539776*b('v'))+16.214031249978476))||((b('h')<(-33.16714717184527*b('v'))+81.85695813588943)&&(b('h')<(43.44906482539776*b('v'))+16.214031249978476)&&(b('h')>(8.724200034130297*b('v'))+27.855486428395956))||((b('h')>(29699.19026356131*b('v'))-38245.65372368247)&&(b('h')<(8.724200034130297*b('v'))+27.855486428395956)&&(b('h')>(-16.544281722059484*b('v'))+36.32670437437103))||((b('h')>(15.820483019684168*b('v'))-5.367950304752587)&&(b('h')<(-16.544281722059484*b('v'))+36.32670437437103)&&(b('h')>(-7589.899231290106*b('v'))+2575.281793922023))||((b('h')>(46.74233619452139*b('v'))-45.203740876729434)&&(b('h')<(15.820483019684168*b('v'))-5.367950304752586)&&(b('h')>(0*b('v'))+0))").select(["h"], ["cloud_hsv_432_ok"]))
-        cloudMask = image.expression("(b('cloud_temp_ok'))||(1&&b('cloud_ndvi_ok')==1&&b('cloud_hsv_654_ok')==1&&b('cloud_hsv_432_ok')==1)").select(["cloud_temp_ok"], ["isCloud"])
+        cloudMask = image.expression("(b('cloud_ndvi_ok')==1&&b('cloud_hsv_654_ok')==1&&b('cloud_hsv_432_ok')==1)").select(["cloud_ndvi_ok"], ["isCloud"])
         image = image.addBands(cloudMask.convolve(ee.Kernel.fixed(5, 5, [[0, 0, 1, 0, 0], [0, 1, 1, 1, 0], [1, 1, 1, 1, 1], [0, 1, 1, 1, 0], [0, 0, 1, 0, 0]])).expression("b('isCloud')>0"))
+    else:
+        image.addBands(ee.Image(0).clip(image.geometry))
     # add a band for the slope mask
     if applySlopeMask:
 #         print "applySlopeMask=True"
@@ -343,7 +342,10 @@ def detectWater(image, sensor=None):
     detectbands = [b for b in image.bandNames().getInfo() if b[:6] == "detect"]
     image = image.addBands(image.select(detectbands).reduce(ee.Reducer.allNonZero()).select(["all"], ["water"]))
     # create a final water detection layer with 0-not water (grey), 1=no data (black), 2=cloud(white), 3=water(blue)
-    detection = image.expression("b('isEmpty')+(b('isCloud')*2)+(b('water')*3)").select(["isEmpty"], ["class"])
+    if applyCloudMask:
+        detection = image.expression("b('isEmpty')+(b('isCloud')*2)+(b('water')*3)").select(["isEmpty"], ["class"])
+    else:
+        detection = image.expression("b('isEmpty')+(b('water')*3)").select(["isEmpty"], ["class"])
     return detection  # 0-not water, 1=no data, 2=cloud, 3=water
 
 def authenticate():
