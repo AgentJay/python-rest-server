@@ -1,4 +1,4 @@
-$def with (schemaname, services, header, footer)
+$def with (tag, services, header, footer)
 <html>
 	<head>
 		<title>DOPA Web Services</title>
@@ -6,11 +6,11 @@ $def with (schemaname, services, header, footer)
 	</head>
 	<body>
 		$:header
-		<div class="breadcrumb"><a href="../">Schemas&nbsp;&nbsp;</a> | &nbsp;&nbsp;$schemaname[:1]$schemaname[1:2].upper()$schemaname[2:]</div>
+		<div class="breadcrumb"><a href="../">Tags&nbsp;&nbsp;</a> | &nbsp;&nbsp;$tag</div>
 		$if services:
 			<table class="table" cellspacing="0"><tr><th>Service</th><th>Description</th></tr>
 			$for service in services:
-				<tr><td><a href="$service['name']">$service['name']</a></td><td>$:service['description']</td></tr>
+				<tr><td><a href="$service['service']">$service['service']</a></td><td>$:service['description']</td></tr>
 			</table>
 		$else:
 		    <p>No content</p>

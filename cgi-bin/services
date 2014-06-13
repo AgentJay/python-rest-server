@@ -2,6 +2,7 @@
 # provides a GUI to the REST Services available at JRC that shows you the services based on the schemas that are within 
 import web, sys, re, datetime, urllib, select, psycopg2, ast, pycas, serviceRequest
 from serviceRequest import DopaServicesError
+from urlparse import parse_qs
 from psycopg2 import ProgrammingError, OperationalError
 from dbconnect import dbconnect
 
@@ -33,12 +34,17 @@ session = web.session.Session(app, web.session.DiskStore('../../htdocs/mstmp/res
 class test:
     def GET(self):
         try:
-            render = web.template.render('templates/')
-            conn = dbconnect("species_appuser")
-            conn.cur.callproc("utils.dopa_rest_getschemas")
-            schemas = conn.cur.fetchall()
-            schemasdict = [dict([('name', schema[0]), ('description', schema[1])]) for schema in schemas]
-            return render.gettaggedservices("whatever", schemasdict, render.header(), render.footer())
+            queryparams= parse_qs(web.ctx.query[1:])
+            if 'tag' in queryparams:
+                tag = queryparams['tag'][0]
+                render = web.template.render('templates/')
+                conn = dbconnect("species_especies_schema")
+                conn.cur.callproc("especies.dopa_rest_get_tagged_services", [tag])
+                services = conn.cur.fetchall()
+                servicesdict = [dict([('tagname', service[0]), ('aliasname', getservicedescription(service[1]))]) for service in services]
+                return render.gettaggedservices(tag, servicesdict, render.header(), render.footer())
+            else:
+                raise DopaServicesError("No tag parameter specified")
         
         except (DopaServicesError, ProgrammingError, OperationalError):
             return "DOPA Services Error: " + str(sys.exc_info())
