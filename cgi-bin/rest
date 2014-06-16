@@ -49,7 +49,7 @@ class getservicesfortags:
                 conn = dbconnect("species_especies_schema")
                 conn.cur.callproc("utils.dopa_rest_get_tagged_services", [tag])
                 services = conn.cur.fetchall()
-                servicesdict = [dict([('service', service[0]), ('description', getservicedescription(service[1]))]) for service in services]
+                servicesdict = [dict([('service', service[0]), ('description', getservicedescription(service[1]))]) for service in services if isVisibleServiceName(service[0])]
                 return render.gettaggedservices(tag, servicesdict, render.header(), render.footer())
             else:
                 raise DopaServicesError("No tag parameter specified")
