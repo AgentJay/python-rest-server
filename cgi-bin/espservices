@@ -1,9 +1,8 @@
-#!/usr/bin/env python 
-import web, json, sys, exceptions, re, datetime, urllib, select, psycopg2, ast, ee, uuid, math, cPickle, pdfkit, logging, pycas, ast, earthEngine, utilities, glob, gbif, cairosvg  # , cv2
+#!/usr/bin/env python  
+import web, json, sys, exceptions, re, datetime, urllib, select, psycopg2, ast, ee, uuid, math, cPickle, pdfkit, logging, pycas, ast, earthEngine, utilities, glob, cairosvg  # , cv2
 from earthEngine import GoogleEarthEngineError
 from amazon_ses import AmazonSES, EmailMessage, AmazonError
 from ee import EEException
-from gbif import GBIFServiceError
 from twilio.rest import TwilioRestClient
 from decimal import Decimal
 from psycopg2 import ProgrammingError, DataError, IntegrityError, extensions, OperationalError
