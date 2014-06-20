@@ -75,6 +75,10 @@ $def with (schemaname, servicename, servicedesc, inparams, outparams, header, fo
 					$ value = "french"
 				$elif (param['name'] in ['quadkey']):
 					$ value = "132320330230021"
+				$elif (param['name'] in ['grouping_id']):
+					$ value = "ACP - Central Africa"
+				$elif (param['name'] in ['searchterm']):
+					$ value = "Sa"
 				$if (param['type']=='array'):
 					$if (param['default']!=''):
 						$if ',' in param['default']:

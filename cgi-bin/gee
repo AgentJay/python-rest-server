@@ -25,7 +25,6 @@ urls = (
   "/getValuesForPoints", "getValuesForPoints",
   "/getValuesForPolygon", "getValuesForPolygon",
   "/createValidationSites", "createValidationSites",
-  "/WMSServer", "geeWMS",
   "/WMS_image", "gee_WMS_image",
   "/WMS_sequence", "gee_WMS_sequence",
   "/WMS_video", "gee_WMS_video",
