@@ -14,7 +14,6 @@ WEBPY_COOKIE_NAME = "webpy_session_id"
 #=====================  URL HANDLERS  ==================================================================================================================================================================================================================
 
 urls = (
-  "/test", "test",
   "/help", "help",
   "/terms", "terms",
   "/manager", "manager",
@@ -29,25 +28,6 @@ urls = (
 
 app = web.application(urls, locals()) 
 session = web.session.Session(app, web.session.DiskStore('../../htdocs/mstmp/restSessions'))  
-
-
-class test:
-    def GET(self):
-        try:
-            queryparams= parse_qs(web.ctx.query[1:])
-            if 'tag' in queryparams:
-                tag = queryparams['tag'][0]
-                render = web.template.render('templates/')
-                conn = dbconnect("species_especies_schema")
-                conn.cur.callproc("especies.dopa_rest_get_tagged_services", [tag])
-                services = conn.cur.fetchall()
-                servicesdict = [dict([('tagname', service[0]), ('aliasname', getservicedescription(service[1]))]) for service in services]
-                return render.gettaggedservices(tag, servicesdict, render.header(), render.footer())
-            else:
-                raise DopaServicesError("No tag parameter specified")
-        
-        except (DopaServicesError, ProgrammingError, OperationalError):
-            return "DOPA Services Error: " + str(sys.exc_info())
 
 #=====================  GET SCHEMAS CLASS  ==================================================================================================================================================================================================================
 

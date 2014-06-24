@@ -144,19 +144,28 @@ def callservice(schemaname, servicename, querystring):
                 responsejson = json.dumps(dict([(rootName, recordsdict)]), indent=1, cls=CustomJSONEncoder)
             return getJsonResponse(responsejson)
         
-        elif format == 'xml':
+        elif format in ['xml','xmlverbose']:
             root = etree.Element('results')
-            recordsdicts = [OrderedDict([(allfields[col], str(row[col]).decode('utf-8')) for col in range(fieldcount) if (col in colsRequired) and str(row[col]) != 'None']) for row in rows ]  #
-            recordselements = [etree.Element('record', element) for element in recordsdicts]
             recordsnode = etree.Element(rootName)
-            for recordelement in recordselements:
-                recordsnode.append(recordelement)
+            recordsdicts = [OrderedDict([(allfields[col], str(row[col]).decode('utf-8')) for col in range(fieldcount) if (col in colsRequired) and str(row[col]) != 'None']) for row in rows ]  #
+            if format =='xml':
+                recordselements = [etree.Element('record', element) for element in recordsdicts]
+                for recordelement in recordselements:
+                    recordsnode.append(recordelement)
+            else:
+                for recordelement in recordsdicts:
+                    record = etree.Element('record')
+                    for (n, v) in recordelement.items():
+                        el = etree.Element(n)
+                        el.text = v
+                        record.append(el)
+                    recordsnode.append(record)
             root.append(recordsnode)
             web.header("Content-Type", "text/xml")
 #             web.header("Content-Type", "application/Excel") # doesnt work!
 #             web.header("Content-Disposition", "attachment; filename=test.xml")
             return etree.tostring(root)
-        
+
         elif format == 'sms':
             _twilio = twilio()
             client = TwilioRestClient(_twilio.twilio_account_sid, _twilio.twilio_auth_token)  # use the twilio api account
