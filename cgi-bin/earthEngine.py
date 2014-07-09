@@ -4,19 +4,26 @@ from dbconnect import google_earth_engine
 from orderedDict import OrderedDict
 from ee import EEException
 # Constants
+applyCloudMask = True  # Set to 1 to apply a cloud mask
+applySnowMask = True  # Set to 1 to apply a snow mask
 applySlopeMask = False  # Set to 1 to apply a slope mask
 applyNDVIMask = False  # Set to 1 to apply an ndvi mask
 applyTemperatureMask = False  # Set to 1 to apply a temperature mask
 applyBareRockMask = False  # Set to 1 to apply a barerock mask
+cloudLowerTemperatureThreshold = 262.15  # Pixels with a temperature lower than this threshold may be clouds
 cloudNDVIThreshold = 0.11  # Pixels with an NDVI lower than this threshold may be clouds
+snowNorthThreshold = 31  # Pixels with a latitude further north than this will be tested for snow
+snowAltitudinalThreshold = 3000  # Pixels with a height greater than this will be tested for snow
+snowValueThreshold = 0.2  # Pixels with a value greater than this will be tested for snow 
+snowTemperatureThreshold = 282.15  # Pixels with a temperature less than this will be tested for snow 
 slopeMaskThreshold = 0.17  # Pixels with a slope greater than this threshold in radians will be excluded
 ndviMaskThreshold = 0.1  # Pixels with an NDVI greater than this threshold will be excluded
+lowerSceneTempThreshold = 272.15  # lower temperature threshold for the scene
+upperSceneTempThreshold = 310  # upper temperature threshold for the scene
 annualMaxTempThreshold = 310  # Threshold for the max annual temperature above which bare rock could be present
 annualMaxNDVIThreshold = 0.14  # Threshold for the max annual NDVI below which bare rock will be present
-lowerSceneTempThreshold = 272.15  # lower temperature threshold for the scene
-upperSceneTempThreshold = 308  # upper temperature threshold for the scene
 temperatureDifferenceThreshold = 9  # Pixels with a day/night temperature difference greater than this threshold will be excluded
-sunElevationThreshold = 42  # Landsat scenes with a solar elevation angle greater than this angle will be included
+sunElevationThreshold = 23  # Landsat scenes with a solar elevation angle greater than this angle will be included
 waterDetectExpressions = [
   {"bands":"SWIR2,NIR,Red", "expression":"((b('h')<(3.038667895460303*b('v'))+236.62216730574633)&&(b('h')<(10796.714793390856*b('v'))+204.85937891753062)&&(b('h')>(52.75476688685699*b('v'))+209.3760200216838))||((b('h')>(3.038667895460303*b('v'))+236.62216730574633)&&(b('h')<(2.0464628168010686*b('v'))+237.16593011613543)&&(b('h')<(9.076683306759795*b('v'))+236.60439910485127))||((b('h')<(-0.24666028009321075*b('v'))+238.42264113944557)&&(b('h')<(9.88710145914933*b('v'))+236.539667859889)&&(b('h')>(2.0464628168010686*b('v'))+237.1659301161354))||((b('h')>(-43.65372607478519*b('v'))+209.41654907810485)&&(b('h')<(-11433.100423818365*b('v'))+6504.023197860868)&&(b('h')<(52.75476688685699*b('v'))+209.3760200216838))||((b('h')>(26.243531044391943*b('v'))+170.78642497548128)&&(b('h')<(-43.65372607478519*b('v'))+209.41654907810485)&&(b('h')>(-1107.3553634247025*b('v'))+209.86371739648635))||((b('h')>(295.7226981444027*b('v'))+21.853346666047287)&&(b('h')<(26.243531044391943*b('v'))+170.78642497548128)&&(b('h')>(8.433335884642577*b('v'))+171.4003760014821))||((b('h')<(8.433335884642577*b('v'))+171.4003760014821)&&(b('h')>(-31.37019423910757*b('v'))+172.77247877400865)&&(b('h')>(82.71930111287884*b('v'))+132.73119126796098))||((b('h')<(-31.37019423910757*b('v'))+172.77247877400865)&&(b('h')>(-115.8110462176276*b('v'))+175.68331423895395)&&(b('h')>(4.932732579069547*b('v'))+160.0314641384984))||((b('h')<(-115.8110462176276*b('v'))+175.68331423895395)&&(b('h')>(-212.72738738403356*b('v'))+179.02420335115374)&&(b('h')>(7.045573926497733*b('v'))+159.75757941842787))"},
   {"bands":"SWIR2,Green,Blue", "expression":"((b('s')>(0.3402310087582287*b('v'))+0.6878785247108777)&&(b('s')<(-0.22139589479141922*b('v'))+1.0009733932691036)&&(b('s')<(114.04465599671092*b('v'))+0.38090113543454673))||((b('s')>(11.178032732580114*b('v'))-5.353961858528813)&&(b('s')<(0*b('v'))+0.9997719738616231)&&(b('s')>(-0.22139589479141922*b('v'))+1.0009733932691036))||((b('s')>(-6.555760168973008*b('v'))+0.706496211475811)&&(b('s')>(0.9781716036464391*b('v'))+0.33224042147527677)&&(b('s')<(0.3402310087582287*b('v'))+0.6878785247108777))||((b('s')>(0.19217317709040418*b('v'))+0.37128569968432384)&&(b('s')>(1.539711633483847*b('v'))+0.019193983135302795)&&(b('s')<(0.9781716036464391*b('v'))+0.33224042147527677))||((b('s')<(0.19217317709040418*b('v'))+0.37128569968432384)&&(b('s')>(-0.21980966748266745*b('v'))+0.3917513701490769)&&(b('s')>(0.4354503844174411*b('v'))+0.307720990923226))"},
@@ -283,37 +290,51 @@ def detectWater(image, sensor=None):
     image = image.addBands(ee.call('Image.not', image.expression("b('" + sensor['TIR'] + "')>0").mask()).clip(image.geometry()).select([sensor['TIR']], ["isEmpty"]))
     # add a band for the ndvi
     image = image.addBands(image.normalizedDifference([sensor['NIR'], sensor['Red']]).select(["nd"], ["ndvi"]))
+    # compute the terrain if required
+    if applySnowMask or applySlopeMask:
+      terrain = ee.call('Terrain', ee.Image('srtm90_v4')).clip(image.geometry())
+    # MASKS SECTION
     # add a band for the cloud mask
-    # add a band for areas where the temperature is low enough for cloud
-    image = image.addBands(image.expression("b('" + sensor['TIR'] + "')<" + str(lowerSceneTempThreshold)).select([sensor['TIR']], ["cloud_temp_ok"]))
-    # add a band for areas where the ndvi is low enough for cloud
-    image = image.addBands(image.expression("b('ndvi')<" + str(cloudNDVIThreshold)).select(["ndvi"], ["cloud_ndvi_ok"]))
-    # add a band for areas where the hsv 654 is ok for cloud
-    image = image.addBands(convertToHsv(image, sensor['SWIR1'] + "," + sensor['NIR'] + "," + sensor['Red']))
-    image = image.addBands(image.expression("((b('h')>(-60.557047339197744*b('v'))+122.47821613782476)&&(b('h')<(-111.53021054455162*b('v'))+189.34453256158332)&&(b('h')<(1010.7289326933218*b('v'))-135.00694405113367))||((b('h')>(25944.551568789888*b('v'))-33990.88089314458)&&(b('h')<(32.31251221202874*b('v'))+147.77160369999916)&&(b('h')>(-111.53021054455162*b('v'))+189.34453256158332))||((b('h')<(7.476554845098572*b('v'))+180.4922850785867)&&(b('h')<(104.37499774130613*b('v'))+126.94435205260542)&&(b('h')>(32.31251221202874*b('v'))+147.77160369999916))||((b('h')<(71.5303106986243*b('v'))+145.09495436831793)&&(b('h')<(145.14771269084218*b('v'))+115.16036225036032)&&(b('h')>(104.37499774130613*b('v'))+126.94435205260542))||((b('h')>(71.5303106986243*b('v'))+145.09495436831793)&&(b('h')<(63.98778874077445*b('v'))+149.26309627621794)&&(b('h')<(78.90706294311482*b('v'))+142.09539090073736))||((b('h')<(54.022891996163814*b('v'))+154.76988882666987)&&(b('h')>(7.476554845098572*b('v'))+180.4922850785867)&&(b('h')<(1.329979711104365*b('v'))+188.59022644471142))||((b('h')<(-0.9063208002806431*b('v'))+191.53649001807514)&&(b('h')<(12.120520640164884*b('v'))+181.66444228368684)&&(b('h')>(1.329979711104365*b('v'))+188.59022644471142))||((b('h')>(-554.544380704817*b('v'))+241.20879791870624)&&(b('h')>(-14.34796731410254*b('v'))+61.86139794741938)&&(b('h')<(-60.557047339197744*b('v'))+122.47821613782476))||((b('h')<(-14.34796731410254*b('v'))+61.86139794741938)&&(b('h')>(-114.63190817087207*b('v'))+95.15607300578044)&&(b('h')>(1.1835799314009672*b('v'))+41.48719930323337))").select(["h"], ["cloud_hsv_654_ok"]))
-    # add a band for areas where the hsv 432 is ok for cloud
-    image = image.addBands(convertToHsv(image, sensor['Red'] + "," + sensor['Green'] + "," + sensor['Blue']), None, True)
-    image = image.addBands(image.expression("((b('h')<(-290.3647541295557*b('v'))+365.9204839911988)&&(b('h')<(335.1949426777476*b('v'))+136.9220846732972)&&(b('h')>(-23.505492887658985*b('v'))+223.42719816416374))||((b('h')<(131.3034109469229*b('v'))+211.56057983072515)&&(b('h')>(-290.3647541295557*b('v'))+365.9204839911988)&&(b('h')>(412.868927627023*b('v'))-9.581110187711033))||((b('h')<(-110.96188694961242*b('v'))+401.8358594223264)&&(b('h')<(31201.82786617771*b('v'))-11162.414442104384)&&(b('h')>(131.3034109469229*b('v'))+211.56057983072515))||((b('h')<(4.324914848340889*b('v'))+359.25883441225426)&&(b('h')>(-110.96188694961242*b('v'))+401.8358594223264)&&(b('h')>(423.77264053876735*b('v'))-18.144891467499406))||((b('h')<(-23.505492887658985*b('v'))+223.42719816416374)&&(b('h')>(-716.983867682122*b('v'))+390.66821480942525)&&(b('h')>(272.52480149100506*b('v'))+65.35762563348138))||((b('h')<(-3550.663071023035*b('v'))+2106.8029918288794)&&(b('h')<(272.52480149100506*b('v'))+65.35762563348138)&&(b('h')>(-326.4412985361954*b('v'))+262.2735506441135))||((b('h')>(-61.03523580992668*b('v'))+110.43867974751751)&&(b('h')<(-326.4412985361954*b('v'))+262.2735506441135)&&(b('h')>(-1622.2473694938608*b('v'))+688.2823866791312))||((b('h')<(-61.03523580992668*b('v'))+110.43867974751751)&&(b('h')<(1636.2739567673634*b('v'))-517.7779568562837)&&(b('h')>(188.91098090522192*b('v'))-32.551842609834154))||((b('h')<(-77.56198786778931*b('v'))+119.89338940738565)&&(b('h')<(188.91098090522192*b('v'))-32.551842609834154)&&(b('h')>(43.44906482539776*b('v'))+16.214031249978476))||((b('h')<(-33.16714717184527*b('v'))+81.85695813588943)&&(b('h')<(43.44906482539776*b('v'))+16.214031249978476)&&(b('h')>(8.724200034130297*b('v'))+27.855486428395956))||((b('h')>(29699.19026356131*b('v'))-38245.65372368247)&&(b('h')<(8.724200034130297*b('v'))+27.855486428395956)&&(b('h')>(-16.544281722059484*b('v'))+36.32670437437103))||((b('h')>(15.820483019684168*b('v'))-5.367950304752587)&&(b('h')<(-16.544281722059484*b('v'))+36.32670437437103)&&(b('h')>(-7589.899231290106*b('v'))+2575.281793922023))||((b('h')>(46.74233619452139*b('v'))-45.203740876729434)&&(b('h')<(15.820483019684168*b('v'))-5.367950304752586)&&(b('h')>(0*b('v'))+0))").select(["h"], ["cloud_hsv_432_ok"]))
-    cloudMask = image.expression("(b('cloud_temp_ok'))||(b('cloud_ndvi_ok')==1&&b('cloud_hsv_654_ok')==1&&b('cloud_hsv_432_ok')==1)").select(["cloud_temp_ok"], ["isCloud"])
-    image = image.addBands(cloudMask.convolve(ee.Kernel.fixed(5, 5, [[0, 0, 1, 0, 0], [0, 1, 1, 1, 0], [1, 1, 1, 1, 1], [0, 1, 1, 1, 0], [0, 0, 1, 0, 0]])).expression("b('isCloud')>0"))
+    if applyCloudMask:
+        # add a band for areas where the temperature is low enough for cloud
+        image = image.addBands(image.expression("b('" + sensor['TIR'] + "')<" + str(lowerSceneTempThreshold)).select([sensor['TIR']], ["cloud_temp_ok"]))
+        # add a band for areas where the ndvi is low enough for cloud
+        image = image.addBands(image.expression("b('ndvi')<" + str(cloudNDVIThreshold)).select(["ndvi"], ["cloud_ndvi_ok"]))
+        # add a band for areas where the hsv 654 is ok for cloud
+        image = image.addBands(convertToHsv(image, sensor['SWIR1'] + "," + sensor['NIR'] + "," + sensor['Red']))
+        image = image.addBands(image.expression("((b('h')>(-63.9767458759244*b('v'))+126.96415795606003)&&(b('h')<(-110.99212035041235*b('v'))+188.63866879085975)&&(b('h')<(603.2197202957016*b('v'))-37.718566327653065))||((b('h')>(25944.551568789888*b('v'))-33990.88089314458)&&(b('h')<(36.86094838605795*b('v'))+141.77916585585064)&&(b('h')>(-110.99212035041235*b('v'))+188.63866879085975))||((b('h')<(2.706669936469208*b('v'))+186.77647545634971)&&(b('h')<(106.69607879660673*b('v'))+119.64611493979173)&&(b('h')>(36.86094838605795*b('v'))+141.77916585585064))||((b('h')<(81.81592861333533*b('v'))+135.70749532282187)&&(b('h')<(176.29751158778367*b('v'))+97.58713048968069)&&(b('h')>(106.69607879660673*b('v'))+119.64611493979172))||((b('h')>(81.81592861333533*b('v'))+135.70749532282187)&&(b('h')<(63.82071478662236*b('v'))+147.32430519799433)&&(b('h')<(109.53269473723807*b('v'))+124.52464673608978))||((b('h')<(8.966684960846429*b('v'))+182.73532290022047)&&(b('h')>(2.706669936469208*b('v'))+186.77647545634971)&&(b('h')<(1.3539150425983255*b('v'))+188.55869231281008))||((b('h')>(-634.8621367931978*b('v'))+267.8746186626148)&&(b('h')>(-14.34796731410254*b('v'))+61.86139794741938)&&(b('h')<(-63.9767458759244*b('v'))+126.96415795606003))||((b('h')<(-14.34796731410254*b('v'))+61.86139794741938)&&(b('h')>(-114.63190817087207*b('v'))+95.15607300578044)&&(b('h')>(1.1835799314009672*b('v'))+41.48719930323337))").select(["h"], ["cloud_hsv_654_ok"]))
+        # add a band for areas where the hsv 432 is ok for cloud
+        image = image.addBands(convertToHsv(image, sensor['Red'] + "," + sensor['Green'] + "," + sensor['Blue']), None, True)
+        image = image.addBands(image.expression("((b('h')<(490.8082696335494*b('v'))+79.95677350110236)&&(b('h')>(-91.39829801435039*b('v'))+235.14099783080272)&&(b('h')>(1426.1409800726237*b('v'))-262.4401146190752))||((b('h')<(-91.39829801435039*b('v'))+235.14099783080272)&&(b('h')>(-1462.3727682296092*b('v'))+600.5673285499772)&&(b('h')>(43.0109637714587*b('v'))+191.06997379295458))||((b('h')<(193.9753887166038*b('v'))+188.61827286211468)&&(b('h')<(1426.1409800726237*b('v'))-262.4401146190752)&&(b('h')>(276.2440822973692*b('v'))+114.59591064872176))||((b('h')>(193.9753887166038*b('v'))+188.61827286211468)&&(b('h')<(4.324914848340889*b('v'))+359.25883441225426)&&(b('h')<(31201.82786617771*b('v'))-11162.414442104384))||((b('h')>(-7586.058735191112*b('v'))+2692.54129818123)&&(b('h')>(336.94797401444475*b('v'))+59.976768604942734)&&(b('h')<(276.2440822973692*b('v'))+114.59591064872174))||((b('h')<(336.94797401444475*b('v'))+59.97676860494278)&&(b('h')>(-120.38370866692127*b('v'))+211.93362163645094)&&(b('h')<(-607.9749503868337*b('v'))+910.1838635444369))||((b('h')>(-17.228323217984126*b('v'))+64.21096650884475)&&(b('h')<(-120.38370866692127*b('v'))+211.93362163645097)&&(b('h')>(-1052.9083931253128*b('v'))+521.7820790922744))||((b('h')>(-4.838229766817528*b('v'))+46.46785504723803)&&(b('h')<(-17.228323217984126*b('v'))+64.21096650884475)&&(b('h')>(-113.58235093045452*b('v'))+106.78088838272488))||((b('h')<(-4.838229766817528*b('v'))+46.46785504723803)&&(b('h')>(-2611.3799432671185*b('v'))+1492.1408309694498)&&(b('h')>(18.14135712802163*b('v'))+13.560163654610307))||((b('h')<(-7243.576669583244*b('v'))+10412.632039788463)&&(b('h')<(18.14135712802163*b('v'))+13.560163654610307)&&(b('h')>(-27.301183714976023*b('v'))+39.11251888901155))||((b('h')<(-27.301183714976023*b('v'))+39.11251888901155)&&(b('h')<(50.865139764507866*b('v'))-4.840429776768538)&&(b('h')>(-17.46625242379369*b('v'))+24.974636828442005))||((b('h')<(-17.46625242379369*b('v'))+24.974636828442)&&(b('h')>(10000000*b('v'))-4363287.073623016)&&(b('h')>(-0.13337531632500316*b('v'))+0.058329326076244706))").select(["h"], ["cloud_hsv_432_ok"]))
+        cloudMask = image.expression("(b('cloud_temp_ok'))||(b('cloud_ndvi_ok')==1&&b('cloud_hsv_654_ok')==1&&b('cloud_hsv_432_ok')==1)").select(["cloud_temp_ok"], ["isCloud"])
+        image = image.addBands(cloudMask.convolve(ee.Kernel.fixed(5, 5, [[0, 0, 1, 0, 0], [0, 1, 1, 1, 0], [1, 1, 1, 1, 1], [0, 1, 1, 1, 0], [0, 0, 1, 0, 0]])).expression("b('isCloud')>0"))
+    else:
+        image = image.addBands(ee.Image(0).clip(image.geometry()).select([0], ["isCloud"]))
+    # add a band for the snow mask
+    if applySnowMask:
+      # add a band for areas which are higher than the snowNorthThreshold degrees latitude
+      image = image.addBands(ee.Image.pixelLonLat().expression("b('latitude')>" + str(snowNorthThreshold)).select(["latitude"], ["snow_lat_ok"]))
+      # add a band for areas which are higher than the snowAltitudinalThreshold
+      image = image.addBands(terrain.expression("b('elevation')>" + str(snowAltitudinalThreshold)).mask(1).select(["elevation"], ["snow_alt_ok"]))
+      # add a band for areas where the hsv 432 is ok for snow
+      image = image.addBands(convertToHsv(image, sensor['Red'] + "," + sensor['Green'] + "," + sensor['Blue']), None, True)
+      image = image.addBands(image.expression("b('v')>" + str(snowValueThreshold)).select(["v"], ["snow_v_ok"]))
+      # add a band for areas where the temperature is low enough for snow
+      image = image.addBands(image.expression("b('" + sensor['TIR'] + "')<" + str(snowTemperatureThreshold)).select([sensor['TIR']], ["snow_temp_ok"]))
+      image = image.addBands(image.expression("b('snow_v_ok')==1&&b('snow_temp_ok')==1&&(b('snow_lat_ok')==1||b('snow_alt_ok')==1)").select(["snow_v_ok"], ["isSnow"]))
     # add a band for the slope mask
     if applySlopeMask:
-#         print "applySlopeMask=True"
-        terrain = ee.call('Terrain', ee.Image('srtm90_v4')).clip(image.geometry())
         slope_radians = terrain.select(['slope']).expression("(b('slope')*" + str(math.pi) + ")/180")
         slope_areas = slope_radians.expression("(b('slope')>" + str(slopeMaskThreshold) + ")")
         image = image.addBands(slope_areas.select(["slope"], ["isSteep"]))
     # add a band for the ndvi mask
     if applyNDVIMask:
-#         print "applyNDVIMask=True"
         image = image.addBands(image.expression("b('ndvi')>" + str(ndviMaskThreshold)).select(["ndvi"], ["isGreen"]))
     # add a band for the temperature mask
     if applyTemperatureMask:
-#         print "applyTemperatureMask=True"
         image = image.addBands(ee.call('Image.not', image.expression("b('" + sensor['TIR'] + "')<" + str(upperSceneTempThreshold) + "&&b('" + sensor['TIR'] + "')>" + str(lowerSceneTempThreshold))).select([sensor['TIR']], ["isTooHotOrCold"]))
     # add a band for the barerock mask
     if applyBareRockMask:
-#         print "applyBareRockMask=True"
         landsat_collection = ee.ImageCollection("LANDSAT/LC8_L1T_TOA").filterDate(datetime.datetime(2013, 4, 1), datetime.datetime(2014, 4, 1)).filterBounds(image.geometry())
         image = image.addBands(landsat_collection.select([sensor['TIR']], ["rock_temp_ok"]).max().expression('b("rock_temp_ok")>' + str(annualMaxTempThreshold)))
         bandnames = getGEEBandNames("NIR,Red", sensor).split(",")
@@ -340,7 +361,7 @@ def detectWater(image, sensor=None):
     detectbands = [b for b in image.bandNames().getInfo() if b[:6] == "detect"]
     image = image.addBands(image.select(detectbands).reduce(ee.Reducer.allNonZero()).select(["all"], ["water"]))
     # create a final water detection layer with 0-not water (grey), 1=no data (black), 2=cloud(white), 3=water(blue)
-    detection = image.expression("b('isEmpty')+(b('isCloud')*2)+(b('water')*3)").select(["isEmpty"], ["class"])
+    detection = image.expression("b('isEmpty')+((b('isCloud')||b('isSnow'))*2)+(b('water')*3)").select(["isEmpty"], ["class"])
     return detection  # 0-not water, 1=no data, 2=cloud, 3=water
 
 def authenticate():
