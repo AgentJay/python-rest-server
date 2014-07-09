@@ -315,7 +315,7 @@ def detectWater(image, sensor=None):
       # add a band for areas which are higher than the snowNorthThreshold degrees latitude
       image = image.addBands(ee.Image.pixelLonLat().expression("b('latitude')>" + str(snowNorthThreshold)).select(["latitude"], ["snow_lat_ok"]))
       # add a band for areas which are higher than the snowAltitudinalThreshold
-      image = image.addBands(terrain.expression("b('elevation')>" + str(snowAltitudinalThreshold)).mask(1).select(["elevation"], ["snow_alt_ok"]))
+      image = image.addBands(terrain.expression("b('elevation')>" + str(snowAltitudinalThreshold)).mask().select(["elevation"], ["snow_alt_ok"]))
       # add a band for areas where the hsv 432 is ok for snow
       image = image.addBands(convertToHsv(image, sensor['Red'] + "," + sensor['Green'] + "," + sensor['Blue']), None, True)
       image = image.addBands(image.expression("b('v')>" + str(snowValueThreshold)).select(["v"], ["snow_v_ok"]))
