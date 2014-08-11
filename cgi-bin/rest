@@ -37,7 +37,7 @@ class getRoot:
             conn.cur.callproc("utils.dopa_rest_get_root_resources")
             resources = conn.cur.fetchall()
             resourcesdict = [dict([('id', resource[0]), ('tagname', resource[1]), ('taglevel', resource[2]), ('tagparent', resource[3]), ('description', resource[4]), ]) for resource in resources]
-            return render.gettags(resourcesdict, render.header(), render.footer())
+            return render.gettags(resourcesdict, render.tagsHeader(), render.footer())
         except (DopaServicesError, ProgrammingError, OperationalError):
             return "DOPA Services Error: " + str(sys.exc_info())
 
@@ -50,7 +50,7 @@ class getservicesfortags:
                 conn.cur.callproc("utils.dopa_rest_get_tagged_services", [tag])
                 services = conn.cur.fetchall()
                 servicesdict = [dict([('service', service[0]), ('description', getservicedescription(service[1]))]) for service in services if isVisibleServiceName(service[0])]
-                return render.gettaggedservices(tag, servicesdict, render.header(), render.footer())
+                return render.gettaggedservices(tag, servicesdict, render.tagsHeader(), render.footer())
             else:
                 raise DopaServicesError("No tag parameter specified")
         except (DopaServicesError, ProgrammingError, OperationalError):
@@ -119,7 +119,7 @@ class getservice:
 #                return params
                 # create a dictionary containing the parameter information
                 paramsdict = [dict([('mode', params[i][2]), ('name', params[i][3]), ('type', gettypefrompostgresql(params[i][4])), ('description', paramdesc[i]), ('default', paramdefs[i])]) for i in range(len(params))]
-                return render.gettaggedservice(tagname, servicename, getservicedescription(params[0][1]), [p for p in paramsdict if (p['mode'] == 'IN')], [p for p in paramsdict if (p['mode'] == 'OUT')], render.header(), render.footer())
+                return render.gettaggedservice(tagname, servicename, getservicedescription(params[0][1]), [p for p in paramsdict if (p['mode'] == 'IN')], [p for p in paramsdict if (p['mode'] == 'OUT')], render.tagsHeader(), render.footer())
             
             except (DopaServicesError, ProgrammingError, OperationalError):
                 return "DOPA Services Error: " + str(sys.exc_info())
@@ -141,12 +141,12 @@ class manager:
 class help:
     def GET(self):
         render = web.template.render('templates/')
-        return render.help(render.header(), render.footer())
+        return render.help(render.tagsHeader(), render.footer())
 
 class terms:
     def GET(self):
         render = web.template.render('templates/')
-        return render.terms(render.header(), render.footer()) 
+        return render.terms(render.tagsHeader(), render.footer()) 
       
 #=====================  HELPER FUNCTIONS  ==================================================================================================================================================================================================================
                                    
