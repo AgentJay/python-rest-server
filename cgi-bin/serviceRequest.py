@@ -137,7 +137,7 @@ def callservice(schemaname, servicename, querystring):
                 recordsdict = [OrderedDict([(allfields[col], row[col]) for col in range(fieldcount) if (col in colsRequired)]) for row in rows] 
             else:
                 recordsdict = [[row[col] for col in range(fieldcount) if (col in colsRequired)] for row in rows]
-            json.encoder.FLOAT_REPR = lambda f: ("%.14f" % f)  # this specifies how many decimal places are returned in the json with float values - currently set to 14 - good enough for returning lat/long coordinates
+            json.encoder.FLOAT_REPR = lambda f: ("%.14g" % f)  # this specifies how many decimal places are returned in the json with float values - currently set to 14 - good enough for returning lat/long coordinates
             if (includemetadata.lower() == 'true'):
                 responsejson = json.dumps(dict([(metadataName, metadatadict), (rootName, recordsdict)]), indent=1, cls=CustomJSONEncoder)
             else: 
