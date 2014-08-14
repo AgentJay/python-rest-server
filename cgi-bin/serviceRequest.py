@@ -40,11 +40,11 @@ def callservice(schemaname, servicename, querystring):
         rootName = params.setdefault('rootname', 'records')
         parseparams = params.setdefault('parseparams', 'true')
         sortField = params.setdefault('sortfield', '')
-        decimalPlaceLimit = params.setdefault('decimalPlaceLimit', '2')
+        decimalPlaceLimit = params.setdefault('dplimit', '2')
         isHadoop = ('true' if (servicename[-2:] == '_h') else 'false')  # if the service is a call to a hadoop method then set a flag 
 
         # remove the standard optional parameters from the dictionary so we are left with just the parameters required for the function
-        del (params['format'], params['fields'], params['includemetadata'], params['parseparams'], params['metadataname'], params['rootname'], params['sortfield'], params['decimalPlaceLimit'])
+        del (params['format'], params['fields'], params['includemetadata'], params['parseparams'], params['metadataname'], params['rootname'], params['sortfield'], params['dplimit'])
         if 'callback' in params.keys():
             del(params['callback'])
         # check if the service name is valid

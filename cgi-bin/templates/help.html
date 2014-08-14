@@ -204,6 +204,9 @@ $def with (header, footer)
 					</td><td></td>
 				</tr>
 				<tr>
+					<td>dplimit</td><td>The <span class='param'>dplimit</span> parameter specifies the number of decimal places that any floating point values are rounded to in the resulting data. This parameters only applies to fields of type='float' and does not apply to fields with the names 'lat' or 'lng'. These are assumed to represent latitude and longitude values. </td><td>2</td>
+				</tr>
+				<tr>
 					<td>includemetadata</td><td>
 					<div class="normal">
 						The <span class='param'>includemetadata</span> parameter sets whether to include a metadata section in the response which includes summary information about the results. See the <a href="#metadata">metadata section</a> for more information.
@@ -223,7 +226,7 @@ $def with (header, footer)
 				For example, the following REST Service call includes values for all optional parameters :
 			</div>
 			<div class="code">
-				http://dopa-services.jrc.ec.europa.eu/services/especies/get_pa_species_list?wdpa_id=785&rlstatus=EN,CR&format=json&fields=iucn_species_id&sortfield=taxon&includemetadata=true&parseparams=true&metadataname=md&rootname=r
+				http://dopa-services.jrc.ec.europa.eu/services/especies/get_pa_species_list?wdpa_id=785&rlstatus=EN,CR&format=json&fields=iucn_species_id&sortfield=taxon&dplimit=3&includemetadata=true&parseparams=true&metadataname=md&rootname=r
 			</div>
 			<h4><a name="spv">Specifying parameter values</a></h4>
 			<div class="normal">
