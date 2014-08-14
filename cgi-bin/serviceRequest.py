@@ -40,10 +40,11 @@ def callservice(schemaname, servicename, querystring):
         rootName = params.setdefault('rootname', 'records')
         parseparams = params.setdefault('parseparams', 'true')
         sortField = params.setdefault('sortfield', '')
+        decimalPlaceLimit = params.setdefault('decimalPlaceLimit', '2')
         isHadoop = ('true' if (servicename[-2:] == '_h') else 'false')  # if the service is a call to a hadoop method then set a flag 
 
         # remove the standard optional parameters from the dictionary so we are left with just the parameters required for the function
-        del (params['format'], params['fields'], params['includemetadata'], params['parseparams'], params['metadataname'], params['rootname'], params['sortfield'])
+        del (params['format'], params['fields'], params['includemetadata'], params['parseparams'], params['metadataname'], params['rootname'], params['sortfield'], params['decimalPlaceLimit'])
         if 'callback' in params.keys():
             del(params['callback'])
         # check if the service name is valid
@@ -131,6 +132,13 @@ def callservice(schemaname, servicename, querystring):
         metadatadict = OrderedDict([("duration", str(t2 - t1)), ("error", None), ("idProperty", conn.cur.description[0].name), ("successProperty", 'success'), ("totalProperty", 'recordCount'), ("success", True), ("recordCount", int(conn.cur.rowcount)), ("root", rootName), ("fields", fieldsdict)])    
         
         # RECORDS SECTION OF THE RESPONSE
+        # parse the float values and set the correct number of decimal places according to the decimalPlaceLimit variable - dont include lat/long fields as these must have more decimal places
+        floatColumns = [i for i, d in enumerate(fieldsdict) if d['type'] == 'float' and d['name'] not in ['lat', 'lng']]
+        if len(floatColumns) > 0:
+            for floatColumn in floatColumns:
+                for row in rows:
+                    row[floatColumn] = round(row[floatColumn], int(decimalPlaceLimit))
+            
         colsRequired = [allfields.index(field) for field in fields]
         if format in ['json', 'array']:
             if format == 'json':
@@ -144,11 +152,11 @@ def callservice(schemaname, servicename, querystring):
                 responsejson = json.dumps(dict([(rootName, recordsdict)]), indent=1, cls=CustomJSONEncoder)
             return getJsonResponse(responsejson)
         
-        elif format in ['xml','xmlverbose']:
+        elif format in ['xml', 'xmlverbose']:
             root = etree.Element('results')
             recordsnode = etree.Element(rootName)
             recordsdicts = [OrderedDict([(allfields[col], str(row[col]).decode('utf-8')) for col in range(fieldcount) if (col in colsRequired) and str(row[col]) != 'None']) for row in rows ]  #
-            if format =='xml':
+            if format == 'xml':
                 recordselements = [etree.Element('record', element) for element in recordsdicts]
                 for recordelement in recordselements:
                     recordsnode.append(recordelement)
