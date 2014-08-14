@@ -7,6 +7,7 @@ from twilio.rest import TwilioRestClient
 from orderedDict import OrderedDict
 from decimal import Decimal
 from lxml import etree
+from types import *
 
 class DopaServicesError(Exception):
     """Exception Class that allows the DOPA Services REST Server to raise custom exceptions"""
@@ -137,7 +138,8 @@ def callservice(schemaname, servicename, querystring):
         if len(floatColumns) > 0:
             for floatColumn in floatColumns:
                 for row in rows:
-                    row[floatColumn] = round(row[floatColumn], int(decimalPlaceLimit))
+                    if type(row[floatColumn]) != NoneType:
+                        row[floatColumn] = round(row[floatColumn], int(decimalPlaceLimit))
             
         colsRequired = [allfields.index(field) for field in fields]
         if format in ['json', 'array']:
