@@ -4,12 +4,6 @@ from dbconnect import google_earth_engine
 from orderedDict import OrderedDict
 from ee import EEException
 # Constants
-applyCloudMask = True  # Set to 1 to apply a cloud mask
-applySnowMask = True  # Set to 1 to apply a snow mask
-applySlopeMask = False  # Set to 1 to apply a slope mask
-applyNDVIMask = False  # Set to 1 to apply an ndvi mask
-applyTemperatureMask = False  # Set to 1 to apply a temperature mask
-applyBareRockMask = False  # Set to 1 to apply a barerock mask
 cloudLowerTemperatureThreshold = 262.15  # Pixels with a temperature lower than this threshold may be clouds
 cloudNDVIThreshold = 0.11  # Pixels with an NDVI lower than this threshold may be clouds
 snowNorthThreshold = 31  # Pixels with a latitude further north than this will be tested for snow
@@ -282,7 +276,7 @@ def dateToDateTime(_date):  # converts a Google date into a Python datetime, e.g
     d = _date.split("-")
     return datetime.datetime(int(d[0]), int(d[1]), int(d[2]))
 
-def detectWater(image, sensor=None):
+def detectWater(image, sensor=None, applyCloudMask=True, applySnowMask=True, applySlopeMask=False, applyNDVIMask=False, applyTemperatureMask=False, applyBareRockMask=False,):
     # get the sensor information from the scene if it isnt already known
     if not sensor:
         sensor = getSensorInformation(image)

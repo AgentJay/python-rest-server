@@ -138,9 +138,10 @@ def callservice(schemaname, servicename, querystring):
         if len(floatColumns) > 0:
             for floatColumn in floatColumns:
                 for row in rows:
-                    if type(row[floatColumn]) != NoneType:
+                    if type(row[floatColumn]) != NoneType:  # check that the data is not null
                         row[floatColumn] = round(row[floatColumn], int(decimalPlaceLimit))
             
+        # return the data
         colsRequired = [allfields.index(field) for field in fields]
         if format in ['json', 'array']:
             if format == 'json':
