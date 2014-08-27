@@ -235,7 +235,7 @@ def getQueryStringParams(querystring):
     return OrderedDict([(q.split("=")[0], urllib.unquote(q.split("=")[1])) for q in querystring.split("&")])
 
 def isValidServiceName(servicename):
-    if (servicename[:3] in ['get', 'set']) | (servicename[:6] in ['insert', 'delete']) | (servicename[:4] in ['_get', '_set']) | (servicename[:7] in ['_insert', '_delete']):  
+    if (servicename[:3] in ['get', 'set']) | (servicename[:6] in ['update','insert', 'delete']) | (servicename[:4] in ['_get', '_set']) | (servicename[:7] in ['_update','_insert', '_delete']):  
         return True
     else:
         return False
