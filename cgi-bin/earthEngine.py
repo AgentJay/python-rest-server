@@ -276,7 +276,7 @@ def dateToDateTime(_date):  # converts a Google date into a Python datetime, e.g
     d = _date.split("-")
     return datetime.datetime(int(d[0]), int(d[1]), int(d[2]))
 
-def detectWater(image, sensor=None, applyCloudMask=True, applySnowMask=True, applySlopeMask=False, applyNDVIMask=False, applyTemperatureMask=False, applyBareRockMask=False,):
+def detectWater(image, sensor=None, applyCloudMask=True, applySnowMask=True, applySlopeMask=False, applyNDVIMask=False, applyTemperatureMask=False, applyBareRockMask=False):
     # get the sensor information from the scene if it isnt already known
     if not sensor:
         sensor = getSensorInformation(image)

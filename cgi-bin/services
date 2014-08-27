@@ -164,7 +164,7 @@ def getservicedescription(fulldescription):
         return fulldescription
 
 def isVisibleServiceName(servicename):
-    if (servicename[:3] in ['get', 'set']) | (servicename[:6] in ['insert', 'delete']) | ((servicename[:4] in ['_get', '_set']) & (web.ctx.host == 'dopa-services.jrc.it')) | ((servicename[:7] in ['_insert', '_delete']) & (web.ctx.host == 'dopa-services.jrc.it')):  
+    if (servicename[:3] in ['get', 'set']) | (servicename[:6] in ['update','insert', 'delete']) | ((servicename[:4] in ['_get', '_set']) & (web.ctx.host == 'dopa-services.jrc.it')) | ((servicename[:7] in ['_update','_insert', '_delete']) & (web.ctx.host == 'dopa-services.jrc.it')):  
         return True
     else:
         return False
