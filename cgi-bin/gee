@@ -63,7 +63,9 @@ class updatehsv():
     def GET(self):
         hsv = web.input()['hsv']
         conn = dbconnect("species_especies_schema")
-        conn.cur.execute("UPDATE especies.gee_training_data SET  hue = (gethsv(band" + hsv[0] + ",band" + hsv[1] + ",band" + hsv[2] + ")).hue")
+        conn.cur.execute("UPDATE especies.gee_training_data SET hue = (gethsv(band" + hsv[0] + ",band" + hsv[1] + ",band" + hsv[2] + ")).hue")
+        conn.cur.execute("UPDATE especies.gee_training_data SET saturation = (gethsv(band" + hsv[0] + ",band" + hsv[1] + ",band" + hsv[2] + ")).saturation")
+        conn.cur.execute("UPDATE especies.gee_training_data SET val = (gethsv(band" + hsv[0] + ",band" + hsv[1] + ",band" + hsv[2] + ")).val")
         return "Done"
 
 class svg2png:
