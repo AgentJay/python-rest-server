@@ -1,4 +1,4 @@
-import ee, datetime, math, json,urllib
+import ee, datetime, math, json,urllib, uuid
 from ee import EEException
 MY_SERVICE_ACCOUNT = '382559870932@developer.gserviceaccount.com'
 MY_PRIVATE_KEY_FILE = '/Users/andrewcottam/Documents/Aptana Studio 3 Workspaces/GitHub Repositories/python-rest-server/cgi-bin/Google Earth Engine Python API Private Key.p12'
@@ -136,6 +136,9 @@ def detectWater(image):
     water = water.set({'totalArea':totalArea})
     return water
 
+#return a key that will be used to uniquely identify the location
+locationid = str(uuid.uuid4())
+#return locationid
 ee.Initialize(ee.ServiceAccountCredentials(MY_SERVICE_ACCOUNT, MY_PRIVATE_KEY_FILE))
 poly = ee.Geometry.Polygon([[-46.5, -23.1], [-46.3, -23.1], [-46.3, -22.9], [-46.5, -22.9], [-46.5, -23.1]])
 landsat_collection = ee.ImageCollection("LANDSAT/LC8_L1T_TOA").filterDate(datetime.datetime(2013, 7, 1), datetime.datetime(2014, 8, 18)).filterBounds(poly)  # .filterMetadata('CLOUD_COVER', "less_than", 10)
@@ -144,9 +147,9 @@ keys = ['totalArea', 'date', 'sceneid', 'cloudCover']
 data = [(str(f['properties']['totalArea']['water']), str(f['properties']['DATE_ACQUIRED']), str(f['id']), str(f['properties']['CLOUD_COVER'])) for f in detections.getInfo()['features']]
 dataDict = [dict([(keys[col], data[row][col]) for col in range(len(keys))]) for row in range(len(data))]
 print json.dumps(dict([('results', dataDict)]), indent=1)
-geojson = '{"type":"Polygon","coordinates":[[[100.0, 0.0],[101.0,0.0],[101.0,1.0],[100.0,1.0],[100.0,0.0]]]}'
+geojson = poly.toGeoJSONString()#'{"type":"Polygon","coordinates":[[[100.0, 0.0],[101.0,0.0],[101.0,1.0],[100.0,1.0],[100.0,0.0]]]}'
 for row in data:
-    values = {"q":"INSERT INTO water_stats (the_geom, cloudcover,date,sceneid,totalarea) VALUES (ST_SetSRID(ST_GeomFromGeoJSON('" + geojson + "'),4326)," + str(row[3]) + ",'" + row[1] + "','" + row[2] + "'," + row[0] + ")", "api_key":"f9e4705e00d2478eb9780388d293544eb5a7a330"}       
+    values = {"q":"INSERT INTO water_stats (the_geom, cloudcover,date,locationid,sceneid,totalarea) VALUES (ST_SetSRID(ST_GeomFromGeoJSON('" + geojson + "'),4326)," + str(row[3]) + ",'" + row[1] + "','" + locationid + "','" + row[2] + "'," + row[0] + ")", "api_key":"f9e4705e00d2478eb9780388d293544eb5a7a330"}       
     data = urllib.urlencode(values) 
     response = urllib.urlopen("http://andrewcottam.cartodb.com/api/v2/sql", data)
     response.read()
