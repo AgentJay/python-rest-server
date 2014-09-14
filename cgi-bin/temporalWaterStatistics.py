@@ -63,9 +63,9 @@ def convertToHsv(image, bands):
 def detectWater(image):
     applyCloudMask = True
     applySnowMask = True
-    applySlopeMask = True
-    applyNDVIMask = True
-    applyTemperatureMask = True
+    applySlopeMask = False
+    applyNDVIMask = False
+    applyTemperatureMask = False
     applyBareRockMask = False
     # add a band for no data areas
     image = image.addBands(ee.call('Image.not', image.expression("b('" + sensor['TIR'] + "')>0").mask()).clip(image.geometry()).select([sensor['TIR']], ["isEmpty"]))
@@ -115,7 +115,8 @@ def detectWater(image):
     if applyTemperatureMask:
         image = image.addBands(ee.call('Image.not', image.expression("b('" + sensor['TIR'] + "')<" + str(upperSceneTempThreshold) + "&&b('" + sensor['TIR'] + "')>" + str(lowerSceneTempThreshold))).select([sensor['TIR']], ["isTooHotOrCold"]))
     # add a band for the total mask - this adds all bands with the prefix 'is' 
-    maskbands = ["isCloud", "isSnow", "isSteep", "isGreen", "isTooHotOrCold"]
+#     maskbands = ["isCloud", "isSnow", "isSteep", "isGreen", "isTooHotOrCold"]
+    maskbands = ["isCloud", "isSnow" ]
     image = image.addBands(ee.call('Image.not', image.select(maskbands).reduce(ee.Reducer.anyNonZero())).select(["any"], ["detectArea"]))
     # detect water
     for i in range(len(waterDetectExpressions)):
@@ -137,9 +138,9 @@ def detectWater(image):
 
 ee.Initialize(ee.ServiceAccountCredentials(MY_SERVICE_ACCOUNT, MY_PRIVATE_KEY_FILE))
 poly = ee.Geometry.Polygon([[-46.5, -23.1], [-46.3, -23.1], [-46.3, -22.9], [-46.5, -22.9], [-46.5, -23.1]])
-landsat_collection = ee.ImageCollection("LANDSAT/LC8_L1T_TOA").filterDate(datetime.datetime(2013, 7, 1), datetime.datetime(2014, 8, 18)).filterBounds(poly)
+landsat_collection = ee.ImageCollection("LANDSAT/LC8_L1T_TOA").filterDate(datetime.datetime(2013, 7, 1), datetime.datetime(2014, 8, 18)).filterBounds(poly)  # .filterMetadata('CLOUD_COVER', "less_than", 10)
 detections = landsat_collection.map(detectWater)
-keys = ['totalArea', 'date', 'sceneid']
-data = [(str(f['properties']['totalArea']['water']), str(f['properties']['DATE_ACQUIRED']), str(f['id'])) for f in detections.getInfo()['features']]
-dataDict = [dict([(keys[col], data[row][col]) for col in range(3)]) for row in range(2)]
+keys = ['totalArea', 'date', 'sceneid', 'cloudCover']
+data = [(str(f['properties']['totalArea']['water']), str(f['properties']['DATE_ACQUIRED']), str(f['id']), str(f['properties']['CLOUD_COVER'])) for f in detections.getInfo()['features']]
+dataDict = [dict([(keys[col], data[row][col]) for col in range(len(keys))]) for row in range(len(data))]
 print json.dumps(dict([('results', dataDict)]), indent=1)
