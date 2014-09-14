@@ -146,7 +146,7 @@ dataDict = [dict([(keys[col], data[row][col]) for col in range(len(keys))]) for 
 print json.dumps(dict([('results', dataDict)]), indent=1)
 geojson = '{"type":"Polygon","coordinates":[[[100.0, 0.0],[101.0,0.0],[101.0,1.0],[100.0,1.0],[100.0,0.0]]]}'
 for row in data:
-    values = {"q":"INSERT INTO water_stats (the_geom, cloudcover,date,sceneid,totalarea) VALUES (ST_SetSRID(ST_GeomFromGeoJSON('" + geojson + "'),4326),10,'1999','landsat','22')", "api_key":"f9e4705e00d2478eb9780388d293544eb5a7a330"}       
+    values = {"q":"INSERT INTO water_stats (the_geom, cloudcover,date,sceneid,totalarea) VALUES (ST_SetSRID(ST_GeomFromGeoJSON('" + geojson + "'),4326)," + str(row[3]) + ",'" + row[1] + "','" + row[2] + "'," + row[0] + ")", "api_key":"f9e4705e00d2478eb9780388d293544eb5a7a330"}       
     data = urllib.urlencode(values) 
     response = urllib.urlopen("http://andrewcottam.cartodb.com/api/v2/sql", data)
     response.read()
