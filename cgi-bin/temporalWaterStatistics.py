@@ -1,4 +1,4 @@
-import ee, datetime, math, json
+import ee, datetime, math, json,urllib
 from ee import EEException
 MY_SERVICE_ACCOUNT = '382559870932@developer.gserviceaccount.com'
 MY_PRIVATE_KEY_FILE = '/Users/andrewcottam/Documents/Aptana Studio 3 Workspaces/GitHub Repositories/python-rest-server/cgi-bin/Google Earth Engine Python API Private Key.p12'
@@ -144,3 +144,9 @@ keys = ['totalArea', 'date', 'sceneid', 'cloudCover']
 data = [(str(f['properties']['totalArea']['water']), str(f['properties']['DATE_ACQUIRED']), str(f['id']), str(f['properties']['CLOUD_COVER'])) for f in detections.getInfo()['features']]
 dataDict = [dict([(keys[col], data[row][col]) for col in range(len(keys))]) for row in range(len(data))]
 print json.dumps(dict([('results', dataDict)]), indent=1)
+geojson = '{"type":"Polygon","coordinates":[[[100.0, 0.0],[101.0,0.0],[101.0,1.0],[100.0,1.0],[100.0,0.0]]]}'
+for row in data:
+    values = {"q":"INSERT INTO water_stats (the_geom, cloudcover,date,sceneid,totalarea) VALUES (ST_SetSRID(ST_GeomFromGeoJSON('" + geojson + "'),4326),10,'1999','landsat','22')", "api_key":"f9e4705e00d2478eb9780388d293544eb5a7a330"}       
+    data = urllib.urlencode(values) 
+    response = urllib.urlopen("http://andrewcottam.cartodb.com/api/v2/sql", data)
+    response.read()
