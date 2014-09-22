@@ -33,7 +33,7 @@ class getRoot:
     def GET(self):
         try:
             render = web.template.render('templates/')
-            conn = dbconnect("species_especies_schema")
+            conn = dbconnect("species_restuser_schema")
             conn.cur.callproc("utils.dopa_rest_get_root_resources")
             resources = conn.cur.fetchall()
             resourcesdict = [dict([('id', resource[0]), ('tagname', resource[1]), ('taglevel', resource[2]), ('tagparent', resource[3]), ('description', resource[4]), ]) for resource in resources]
@@ -46,7 +46,7 @@ class getservicesfortags:
         try:
             if tag:
                 render = web.template.render('templates/')
-                conn = dbconnect("species_especies_schema")
+                conn = dbconnect("species_restuser_schema")
                 conn.cur.callproc("utils.dopa_rest_get_tagged_services", [tag])
                 services = conn.cur.fetchall()
                 servicesdict = [dict([('service', service[0]), ('description', getservicedescription(service[1]))]) for service in services if isVisibleServiceName(service[0])]
@@ -62,7 +62,7 @@ class getservice:
         if web.input():
             try:
                 # get the schema name for the servicename
-                conn = dbconnect("species_especies_schema")
+                conn = dbconnect("species_restuser_schema")
                 conn.cur.callproc("utils.dopa_rest_get_schema_name", [servicename])
                 services = conn.cur.fetchall()
                 if len(services) > 0:

@@ -60,7 +60,7 @@ def callservice(schemaname, servicename, querystring):
 #                 return "<html><head></html><body><h1>Authentication required</h1></body></html>"
 
         # connect to the database to get the data
-        conn = dbconnect("species_especies_schema")
+        conn = dbconnect("species_restuser_schema")
 
         # if it is a Hadoop query then we need to run if first before we actually use the values to get the data from postgresql 
         if (isHadoop.lower() == 'true'): 
