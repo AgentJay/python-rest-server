@@ -33,16 +33,19 @@ class GoogleEarthEngineError(Exception):
  
 def getSensorInformation(scene):  # returns the sensor information based on the passed scene
 #     logging.info(scene.getInfo().keys())
-    if "SENSOR_ID" not in scene.getInfo()['properties'].keys():
-        return None
-    else:
-        sensorname = scene.getInfo()['properties']['SENSOR_ID']
-        if sensorname == "OLI_TIRS":  # landsat 8
-            return sensors[2]
-        elif (sensorname == "ETM+") | (sensorname == "ETM"):  # landsat 7
-            return sensors[1]
-        elif sensorname == "TM":  # landsat 5
-            return sensors[0]
+    try:
+        if "SENSOR_ID" not in scene.getInfo()['properties'].keys():
+            return None
+        else:
+            sensorname = scene.getInfo()['properties']['SENSOR_ID']
+            if sensorname == "OLI_TIRS":  # landsat 8
+                return sensors[2]
+            elif (sensorname == "ETM+") | (sensorname == "ETM"):  # landsat 7
+                return sensors[1]
+            elif sensorname == "TM":  # landsat 5
+                return sensors[0]
+    except (EEException)as e:
+        raise GoogleEarthEngineError("Unable to get sensor information. You may be calling this method from an imageCollection.map() function which does not support getInfo()")
     
 def getRadiometricCorrection(scene):
     sceneid = landsat_scene.getInfo()['id']
@@ -279,7 +282,11 @@ def dateToDateTime(_date):  # converts a Google date into a Python datetime, e.g
 def detectWater(image, sensor=None, applyCloudMask=True, applySnowMask=True, applySlopeMask=False, applyNDVIMask=False, applyTemperatureMask=False, applyBareRockMask=False):
     # get the sensor information from the scene if it isnt already known
     if not sensor:
-        sensor = getSensorInformation(image)
+        try:
+            sensor = getSensorInformation(image)
+        except (GoogleEarthEngineError) as e:
+            sensor = sensors[2] #use landsat 8 as the default value if you cant get the sensor information
+            print e
     # add a band for no data areas
     image = image.addBands(ee.call('Image.not', image.expression("b('" + sensor['TIR'] + "')>0").mask()).clip(image.geometry()).select([sensor['TIR']], ["isEmpty"]))
     # add a band for the ndvi
@@ -339,9 +346,8 @@ def detectWater(image, sensor=None, applyCloudMask=True, applySnowMask=True, app
         isrock = landsat_collection_ndvi.max().clip(image.geometry())
         image = image.addBands(isrock.expression('b("nd")<' + str(annualMaxNDVIThreshold)).select(["nd"], ["rock_ndvi_ok"]))
         image = image.addBands(image.expression("b('rock_temp_ok')==1&&b('rock_ndvi_ok')==1").select(['rock_temp_ok'], ['isRock']))
-    # add a band for the total mask - this adds all bands with the prefix 'is' 
-    maskbands = [b for b in image.bandNames().getInfo() if b[:2] == "is"]
-    image = image.addBands(ee.call('Image.not', image.select(maskbands).reduce(ee.Reducer.anyNonZero())).select(["any"], ["detectArea"]))
+    # add a band for the total mask - this adds all bands with the prefix 'is*' 
+    image = image.addBands(ee.call('Image.not', image.select(["is.*"]).reduce(ee.Reducer.anyNonZero())).select(["any"], ["detectArea"]))
     # detect water
     for i in range(len(waterDetectExpressions)):
         waterDetectExpression = waterDetectExpressions[i]
@@ -350,10 +356,9 @@ def detectWater(image, sensor=None, applyCloudMask=True, applySnowMask=True, app
         # convert to hsv
         hsv = convertToHsv(image, bands)
         detection = hsv.expression(waterDetectExpression['expression'])
-        image = image.addBands(detection.select([detection.bandNames().getInfo()[0]], ["detectExpression" + str(i + 1)]))
+        image = image.addBands(detection.select([0], ["detectExpression" + str(i + 1)]))
     # add a band for the total detections - this combines all the bands with the prefix 'detect'
-    detectbands = [b for b in image.bandNames().getInfo() if b[:6] == "detect"]
-    image = image.addBands(image.select(detectbands).reduce(ee.Reducer.allNonZero()).select(["all"], ["water"]))
+    image = image.addBands(image.select(["detect.*"]).reduce(ee.Reducer.allNonZero()).select(["all"], ["water"]))
     # create a final water detection layer with 0-not water (grey), 1=no data (black), 2=cloud(white), 3=water(blue)
     detection = image.expression("b('isEmpty')+((b('isCloud')||b('isSnow'))*2)+(b('water')*3)").select(["isEmpty"], ["class"])
     return detection  # 0-not water, 1=no data, 2=cloud, 3=water
