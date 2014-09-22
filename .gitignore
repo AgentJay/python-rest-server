@@ -1,0 +1,3 @@
+*.pyc
+cgi-bin/dbconnect.py
+cgi-bin/google earth engine/
