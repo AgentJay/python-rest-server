@@ -94,7 +94,7 @@ def getImage(ll_x, ll_y, ur_x, ur_y, crs, width, height, layerParameters):  # ma
         ed = datetime.datetime(int(layerParameters['endDate'][:4]), int(layerParameters['endDate'][5:7]), int(layerParameters['endDate'][8:10]))
         collectionL8 = (ee.ImageCollection(layerParameters['collectionid']).filterDate(sd, ed).filterMetadata('CLOUD_COVER', "less_than", 80).filterBounds(ee.Feature.Polygon(region)).map(PINO(['B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'BQA'])))
         out = PBS_classification(collectionL8)
-        output_thumbnail = out.getThumbUrl({'size':'400x400', 'region':region, 'size': width + 'x' + height, 'palette':PBS_palette})
+        output_thumbnail = out.getThumbUrl({'region':region, 'size': width + 'x' + height, 'palette':PBS_palette})
         return output_thumbnail
     else:
         try:
