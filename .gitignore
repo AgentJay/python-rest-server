@@ -3,3 +3,4 @@ cgi-bin/dbconnect.py
 cgi-bin/google earth engine/
 .project
 .pydevproject
+cgi-bin/Simonets_libs.py
