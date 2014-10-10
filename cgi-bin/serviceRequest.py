@@ -221,8 +221,8 @@ def callservice(schemaname, servicename, querystring):
         msg = "There was an error sending the email. Make sure that the email address has been verified in Amazon Simple Email Services" if type(e) == AmazonError else str(sys.exc_info()).decode('string_escape')
         logging.error(msg + "\n")
         if type(e) == ProgrammingError:
-            if ("ORDER BY" in e.message) & ("does not exist" in e.message):
-                msg = "Invalid sortfield parameter: " + sortField
+            if ("column" in e.message) & ("does not exist" in e.message):
+                msg = "Invalid sortfield parameter: " + sortField 
         if format in ['json', 'array']:
             metadatadict = OrderedDict([("duration", str(t2 - t1)), ("error", msg), ("idProperty", None), ("successProperty", 'success'), ("totalProperty", 'recordCount'), ("success", False), ("recordCount", 0), ("root", None), ("fields", None)])    
             responsejson = json.dumps(dict([(metadataName, metadatadict), (rootName, None)]), indent=1)
