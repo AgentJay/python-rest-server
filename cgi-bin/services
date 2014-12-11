@@ -64,12 +64,12 @@ class getservices:
 class getservice:
     def GET(self, schemaname, servicename):
         # if there are some parameters then the user is making a request for data 
+        conn = dbconnect("species_restuser_schema")
         if web.input():
-            return serviceRequest.callservice(schemaname, servicename, web.ctx.query[1:])  # pass the querystring to preserve the order of the parameters - the web.input() collection does not preserve the order
+            return serviceRequest.callservice(conn, schemaname, servicename, web.ctx.query[1:])  # pass the querystring to preserve the order of the parameters - the web.input() collection does not preserve the order
         else:
             try:
                 render = web.template.render('templates/')
-                conn = dbconnect("species_restuser_schema")
                 conn.cur.callproc("utils.dopa_rest_getservice", [servicename])
                 params = conn.cur.fetchall()
                 if (len(params) == 0):

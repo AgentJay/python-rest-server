@@ -24,7 +24,7 @@ class CustomJSONEncoder(json.JSONEncoder):
 
 #=====================  CALL SERVICE METHOD TO RETURN DATA FOR A SERVICE  ==================================================================================================================================================================================================================
 
-def callservice(schemaname, servicename, querystring):
+def callservice(conn, schemaname, servicename, querystring):
     try:  
         t1 = datetime.datetime.now()
         # log the request
@@ -58,9 +58,6 @@ def callservice(schemaname, servicename, querystring):
 #                 web.ctx.status = '401 Unauthorized'
 #                 web.header("Content-Type", "text/html")
 #                 return "<html><head></html><body><h1>Authentication required</h1></body></html>"
-
-        # connect to the database to get the data
-        conn = dbconnect("species_restuser_schema")
 
         # if it is a Hadoop query then we need to run if first before we actually use the values to get the data from postgresql 
         if (isHadoop.lower() == 'true'): 

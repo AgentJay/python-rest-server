@@ -22,60 +22,54 @@ urls = (
   "/ecasProxyLogin", "ecasProxyLogin",
   "/ecasLogout", "ecasLogout",
   "/(.+)/(.+)", "getservice",
-  "/(.+)/", "getservicesfortags",
-  "/", "getRoot"
+  "/(.+)/", "getservices",
+  "/", "getschemas"
   )
 
 app = web.application(urls, locals()) 
 session = web.session.Session(app, web.session.DiskStore('../../htdocs/mstmp/restSessions'))  
 
-class getRoot:
+#=====================  GET SCHEMAS CLASS  ==================================================================================================================================================================================================================
+
+class getschemas:
     def GET(self):
         try:
             render = web.template.render('templates/')
-            conn = dbconnect("species_restuser_schema")
-            conn.cur.callproc("utils.dopa_rest_get_root_resources")
-            resources = conn.cur.fetchall()
-            resourcesdict = [dict([('id', resource[0]), ('tagname', resource[1]), ('taglevel', resource[2]), ('tagparent', resource[3]), ('description', resource[4]), ]) for resource in resources]
-            return render.gettags(resourcesdict, render.tagsHeader(), render.footer())
+            conn = dbconnect("ibex")
+            conn.cur.callproc("utils.dopa_rest_getschemas")
+            schemas = conn.cur.fetchall()
+            schemasdict = [dict([('name', schema[0]), ('description', schema[1])]) for schema in schemas]
+            return render.getschemas(schemasdict, render.header(), render.footer())
+        
         except (DopaServicesError, ProgrammingError, OperationalError):
             return "DOPA Services Error: " + str(sys.exc_info())
 
-class getservicesfortags:
-    def GET(self, tag):
+#=====================  GET SERVICES CLASS  ==================================================================================================================================================================================================================
+
+class getservices:
+    def GET(self, schemaname):
         try:
-            if tag:
-                render = web.template.render('templates/')
-                conn = dbconnect("species_restuser_schema")
-                conn.cur.callproc("utils.dopa_rest_get_tagged_services", [tag])
-                services = conn.cur.fetchall()
-                servicesdict = [dict([('service', service[0]), ('description', getservicedescription(service[1]))]) for service in services if isVisibleServiceName(service[0])]
-                return render.gettaggedservices(tag, servicesdict, render.tagsHeader(), render.footer())
-            else:
-                raise DopaServicesError("No tag parameter specified")
+            render = web.template.render('templates/')
+            conn = dbconnect("ibex")
+            conn.cur.callproc("utils.dopa_rest_getservices", [schemaname])
+            services = conn.cur.fetchall()
+            servicesdict = [dict([('name', service[0]), ('description', getservicedescription(service[1]))]) for service in services if isVisibleServiceName(service[0])]
+            return render.getservices(schemaname, servicesdict, render.header(), render.footer())
+
         except (DopaServicesError, ProgrammingError, OperationalError):
             return "DOPA Services Error: " + str(sys.exc_info())
+
+#=====================  GET SERVICE CLASS  ==================================================================================================================================================================================================================
 
 class getservice:
-    def GET(self, tagname, servicename):
-        # if there are some parameters then the user is making a request for data 
+    def GET(self, schemaname, servicename):
+        # if there are some parameters then the user is making a request for data
+        conn = dbconnect("ibex") 
         if web.input():
-            try:
-                # get the schema name for the servicename
-                conn = dbconnect("species_restuser_schema")
-                conn.cur.callproc("utils.dopa_rest_get_schema_name", [servicename])
-                services = conn.cur.fetchall()
-                if len(services) > 0:
-                    schemaname = services[0][0]
-                    return serviceRequest.callservice(conn, schemaname, servicename, web.ctx.query[1:])  # pass the querystring to preserve the order of the parameters - the web.input() collection does not preserve the order
-                else:
-                    raise DopaServicesError('No schema found for service ' + servicename)
-            except (DopaServicesError):
-                return "DOPA Services Error: " + str(sys.exc_info())
+            return serviceRequest.callservice(conn, schemaname, servicename, web.ctx.query[1:])  # pass the querystring to preserve the order of the parameters - the web.input() collection does not preserve the order
         else:
             try:
                 render = web.template.render('templates/')
-                conn = dbconnect("species_appuser")
                 conn.cur.callproc("utils.dopa_rest_getservice", [servicename])
                 params = conn.cur.fetchall()
                 if (len(params) == 0):
@@ -119,7 +113,7 @@ class getservice:
 #                return params
                 # create a dictionary containing the parameter information
                 paramsdict = [dict([('mode', params[i][2]), ('name', params[i][3]), ('type', gettypefrompostgresql(params[i][4])), ('description', paramdesc[i]), ('default', paramdefs[i])]) for i in range(len(params))]
-                return render.gettaggedservice(tagname, servicename, getservicedescription(params[0][1]), [p for p in paramsdict if (p['mode'] == 'IN')], [p for p in paramsdict if (p['mode'] == 'OUT')], render.tagsHeader(), render.footer())
+                return render.getservice(schemaname, servicename, getservicedescription(params[0][1]), [p for p in paramsdict if (p['mode'] == 'IN')], [p for p in paramsdict if (p['mode'] == 'OUT')], render.header(), render.footer())
             
             except (DopaServicesError, ProgrammingError, OperationalError):
                 return "DOPA Services Error: " + str(sys.exc_info())
@@ -130,7 +124,7 @@ class manager:
     def GET(self):
         try:
             render = web.template.render('templates/')
-            conn = dbconnect("species_appuser")
+            conn = dbconnect("ibex")
             conn.cur.execute("select * from especies.species_wdpa_log")
             rows = conn.cur.fetchall()
             return render.manager(rows, render.header_manager(), render.footer_manager())
@@ -141,12 +135,12 @@ class manager:
 class help:
     def GET(self):
         render = web.template.render('templates/')
-        return render.help(render.tagsHeader(), render.footer())
+        return render.help(render.header(), render.footer())
 
 class terms:
     def GET(self):
         render = web.template.render('templates/')
-        return render.terms(render.tagsHeader(), render.footer()) 
+        return render.terms(render.header(), render.footer()) 
       
 #=====================  HELPER FUNCTIONS  ==================================================================================================================================================================================================================
                                    
@@ -170,7 +164,7 @@ def getservicedescription(fulldescription):
         return fulldescription
 
 def isVisibleServiceName(servicename):
-    if (servicename[:3] in ['get', 'set']) | (servicename[:6] in ['insert', 'delete']) | ((servicename[:4] in ['_get', '_set']) & (web.ctx.host == 'dopa-services.jrc.it')) | ((servicename[:7] in ['_insert', '_delete']) & (web.ctx.host == 'dopa-services.jrc.it')):  
+    if (servicename[:3] in ['get', 'set']) | (servicename[:6] in ['update','insert', 'delete']) | ((servicename[:4] in ['_get', '_set']) & (web.ctx.host == 'dopa-services.jrc.it')) | ((servicename[:7] in ['_update','_insert', '_delete']) & (web.ctx.host == 'dopa-services.jrc.it')):  
         return True
     else:
         return False
