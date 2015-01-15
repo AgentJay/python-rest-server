@@ -240,7 +240,7 @@ def getScenesForPoint(collection, x, y, crs):
         # Landsat image ids are LANDSAT/LC8_L1T/LC81970502014029LGN00 whereas Landsat TOA are LC8_L1T_TOA/LC81970502014029LGN00 without the Landsat - so add this in
         if collection[-3:] == "TOA":
             for scene in scenes['features']:
-                scene['id'] = "LANDSAT/" + scene['id']
+                scene['id'] = scene['id']
         return scenes
 
     except (EEException):
