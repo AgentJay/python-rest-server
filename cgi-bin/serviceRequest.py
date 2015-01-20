@@ -218,8 +218,8 @@ def callservice(conn, schemaname, servicename, querystring):
         msg = "There was an error sending the email. Make sure that the email address has been verified in Amazon Simple Email Services" if type(e) == AmazonError else str(sys.exc_info()).decode('string_escape')
         logging.error(msg + "\n")
         if type(e) == ProgrammingError:
-            if ("column" in e.message) & ("does not exist" in e.message):
-                msg = "Invalid sortfield parameter: " + sortField 
+            if ("column" in e.message) & ("does not exist" in e.message) & (sortField != ""):
+                msg = "Invalid sortfield parameter: " + sortField
         if format in ['json', 'array']:
             metadatadict = OrderedDict([("duration", str(t2 - t1)), ("error", msg), ("idProperty", None), ("successProperty", 'success'), ("totalProperty", 'recordCount'), ("success", False), ("recordCount", 0), ("root", None), ("fields", None)])    
             responsejson = json.dumps(dict([(metadataName, metadatadict), (rootName, None)]), indent=1)
@@ -232,7 +232,7 @@ def getQueryStringParams(querystring):
     return OrderedDict([(q.split("=")[0], urllib.unquote(q.split("=")[1])) for q in querystring.split("&")])
 
 def isValidServiceName(servicename):
-    if (servicename[:3] in ['get', 'set']) | (servicename[:6] in ['update','insert', 'delete']) | (servicename[:4] in ['_get', '_set']) | (servicename[:7] in ['_update','_insert', '_delete']):  
+    if (servicename[:3] in ['get', 'set']) | (servicename[:6] in ['update', 'insert', 'delete']) | (servicename[:4] in ['_get', '_set']) | (servicename[:7] in ['_update', '_insert', '_delete']):  
         return True
     else:
         return False
