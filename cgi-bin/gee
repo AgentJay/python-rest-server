@@ -216,10 +216,15 @@ class createValidationSites:  # http://dopa-services.jrc.it/gee/createValidation
             for i in range(len(data[1:])):  # create the VALUES (''),('') statement
                 values = values + "('" + lc[i] + "'," + str(fieldValues[i][2]) + "," + str(fieldValues[i][1]) + ",'" + sensor + "','" + sceneid + "','" + scenedate + "'"
                 for j in range(len(fields[4:])):  # iterate through the bands pixel values to write the string
-                    values = values + "," + str(fieldValues[i][j + 4])
+                    value = fieldValues[i][j + 4]
+                    if (value):
+                        values = values + "," + str(value)
+                    else:
+                        raise DopaServicesError('No data for band ' + str(j + 1))
                 h, s, v = rgbTohsv(fieldValues[i][10], fieldValues[i][8], fieldValues[i][7])  # bands B7, B5, B4 for Landsat 8
                 values = values + ",'" + username + "','" + str(datetime.datetime.now()) + "'," + str(h) + "," + str(s) + "," + str(v) + "),"
             sql = insertinto + values[:-1]
+#             return sql
             conn = dbconnect("species_especies_schema")
             conn.cur.execute(sql)
             responsejson = json.dumps({'rowcount':conn.cur.rowcount})
