@@ -279,3 +279,8 @@ def getResultsAsHTML(rows, fieldcount, colsRequired, metadatadict, landscape=Fal
         return "<head><meta name='pdfkit-orientation' content='Landscape'/></head>" + html + "</table>"
     else:
         return html
+    
+def functionExists(conn, functionName):
+    conn.cur.callproc("utils.dopa_rest_function_exists", [functionName])
+    result = conn.cur.fetchall()
+    return result[0]=='t'

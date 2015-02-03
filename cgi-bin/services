@@ -73,7 +73,10 @@ class getservice:
                 conn.cur.callproc("utils.dopa_rest_getservice", [servicename])
                 params = conn.cur.fetchall()
                 if (len(params) == 0):
-                    raise DopaServicesError('No parameters found for service ' + servicename)
+                    if not (serviceRequest.functionExists(conn,servicename)):
+                        raise DopaServicesError('Function ' + servicename + ' does not exist')
+                    else:
+                        raise DopaServicesError('No parameters found for service ' + servicename)
                 
                 # parse the description text to get the parameters descriptions - the parameter descriptions are encoded using {<param_desc>$<param_desc>$<param_desc> etc}
                 paramdesc = []
