@@ -35,7 +35,7 @@ class getschemas:
     def GET(self):
         try:
             render = web.template.render('templates/')
-            conn = dbconnect("species_restuser_schema")
+            conn = dbconnect("species_especies_schema")
             conn.cur.callproc("utils.dopa_rest_getschemas")
             schemas = conn.cur.fetchall()
             schemasdict = [dict([('name', schema[0]), ('description', schema[1])]) for schema in schemas]
@@ -50,7 +50,7 @@ class getservices:
     def GET(self, schemaname):
         try:
             render = web.template.render('templates/')
-            conn = dbconnect("species_restuser_schema")
+            conn = dbconnect("species_especies_schema")
             conn.cur.callproc("utils.dopa_rest_getservices", [schemaname])
             services = conn.cur.fetchall()
             servicesdict = [dict([('name', service[0]), ('description', getservicedescription(service[1]))]) for service in services if isVisibleServiceName(service[0])]
@@ -64,7 +64,7 @@ class getservices:
 class getservice:
     def GET(self, schemaname, servicename):
         # if there are some parameters then the user is making a request for data 
-        conn = dbconnect("species_restuser_schema")
+        conn = dbconnect("species_especies_schema")
         if web.input():
             return serviceRequest.callservice(conn, schemaname, servicename, web.ctx.query[1:])  # pass the querystring to preserve the order of the parameters - the web.input() collection does not preserve the order
         else:
@@ -124,7 +124,7 @@ class manager:
     def GET(self):
         try:
             render = web.template.render('templates/')
-            conn = dbconnect("species_restuser_schema")
+            conn = dbconnect("species_especies_schema")
             conn.cur.execute("select * from especies.species_wdpa_log")
             rows = conn.cur.fetchall()
             return render.manager(rows, render.header_manager(), render.footer_manager())
