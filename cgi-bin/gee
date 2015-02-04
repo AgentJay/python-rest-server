@@ -230,8 +230,8 @@ class createValidationSites:  # http://dopa-services.jrc.it/gee/createValidation
             responsejson = json.dumps({'rowcount':conn.cur.rowcount})
             return serviceRequest.getJsonResponse(responsejson)
                         
-        except (DopaServicesError, GoogleEarthEngineError):
-            return "Google Earth Engine Error: " + str(sys.exc_info())        
+        except (DopaServicesError, GoogleEarthEngineError) as e:
+            return serviceRequest.returnError("metadata", "records", 0, e.message)        
     
 class wmsParams:  # class to retrieve the standard wms parameters
     def __init__(self, parameters):

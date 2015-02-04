@@ -215,18 +215,12 @@ def callservice(conn, schemaname, servicename, querystring):
     except (DopaServicesError, DataError, ProgrammingError, exceptions.TypeError, IndexError, IntegrityError, AmazonError, OperationalError) as e:
 #        web.webapi.internalerror() #returns a internal server error 500
         t2 = datetime.datetime.now()
-        msg = "There was an error sending the email. Make sure that the email address has been verified in Amazon Simple Email Services" if type(e) == AmazonError else str(sys.exc_info()).decode('string_escape')
+        msg = "There was an error sending the email. Make sure that the email address has been verified in Amazon Simple Email Services" if type(e) == AmazonError else e.message
         logging.error(msg + "\n")
         if type(e) == ProgrammingError:
             if ("column" in e.message) & ("does not exist" in e.message) & (sortField != ""):
                 msg = "Invalid sortfield parameter: " + sortField
-        if format in ['json', 'array']:
-            metadatadict = OrderedDict([("duration", str(t2 - t1)), ("error", msg), ("idProperty", None), ("successProperty", 'success'), ("totalProperty", 'recordCount'), ("success", False), ("recordCount", 0), ("root", None), ("fields", None)])    
-            responsejson = json.dumps(dict([(metadataName, metadatadict), (rootName, None)]), indent=1)
-            return getJsonResponse(responsejson)
-            
-        else:
-            return "DOPA Services Error: " + msg
+        return returnError(metadataName, rootName, t2 - t1, msg)
 
 def getQueryStringParams(querystring):
     return OrderedDict([(q.split("=")[0], urllib.unquote(q.split("=")[1])) for q in querystring.split("&")])
@@ -284,3 +278,8 @@ def functionExists(conn, functionName):
     conn.cur.callproc("utils.dopa_rest_function_exists", [functionName])
     result = conn.cur.fetchall()
     return result[0]=='t'
+
+def returnError(metadataName, rootName, duration, message):
+    metadatadict = OrderedDict([("duration", str(duration)), ("error", message), ("idProperty", None), ("successProperty", 'success'), ("totalProperty", 'recordCount'), ("success", False), ("recordCount", 0), ("root", None), ("fields", None)])    
+    responsejson = json.dumps(dict([(metadataName, metadatadict), (rootName, None)]), indent=1)
+    return getJsonResponse(responsejson)

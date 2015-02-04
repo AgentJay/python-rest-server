@@ -80,7 +80,7 @@ class getservice:
                 params = conn.cur.fetchall()
                 if (len(params) == 0):
                     if not (serviceRequest.functionExists(conn,servicename)):
-                        raise DopaServicesError('Function ' + servicename + ' does not exist')
+                        raise DopaServicesError('Function ' + servicename + ' does not exist in database ' + conn.conn.dsn)
                     else:
                         raise DopaServicesError('No parameters found for service ' + servicename)
                 
