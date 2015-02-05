@@ -75,7 +75,7 @@ class getservice:
         else:
             try:
                 render = web.template.render('templates/')
-                conn = dbconnect("species_appuser")
+                conn = dbconnect("ibex")
                 conn.cur.callproc("utils.dopa_rest_getservice", [servicename])
                 params = conn.cur.fetchall()
                 if (len(params) == 0):
@@ -133,7 +133,7 @@ class manager:
     def GET(self):
         try:
             render = web.template.render('templates/')
-            conn = dbconnect("species_appuser")
+            conn = dbconnect("ibex")
             conn.cur.execute("select * from especies.species_wdpa_log")
             rows = conn.cur.fetchall()
             return render.manager(rows, render.header_manager(), render.footer_manager())
