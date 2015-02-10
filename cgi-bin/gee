@@ -349,7 +349,7 @@ class createValidationSites:  # http://dopa-services.jrc.it/gee/createValidation
                 raise DopaServicesError('No validation sites created. Google Earth Engine did not have any pixel data for the passed geometries')
             fields = data[0]  # get the fields returned from GEE
             fieldValues = data[1:]  # get the field values returned from GEE
-            insertinto = "INSERT INTO gee_training_data(land_cover, lat, lng, sensor, sceneid, image_date, band1, band2, band3, band4, band5, band6, band7, band8, band9, band10, band11, bqa, username, entry_date, hue, saturation,val) VALUES"
+            insertinto = "INSERT INTO gee_training_data(land_cover, lat, lng, sensor, sceneid, image_date, band1, band2, band3, band4, band5, band6, band7, band8, band9, band10, band11, bqa, username, entry_date, hue, saturation,val,ndvi,ndwi) VALUES"
             values = ""
             for i in range(len(data[1:])):  # create the VALUES (''),('') statement
                 values = values + "('" + lc[i] + "'," + str(fieldValues[i][2]) + "," + str(fieldValues[i][1]) + ",'" + sensor + "','" + sceneid + "','" + scenedate + "'"
@@ -360,7 +360,9 @@ class createValidationSites:  # http://dopa-services.jrc.it/gee/createValidation
                     else:
                         raise DopaServicesError('No data for band ' + str(j + 1))
                 h, s, v = rgbTohsv(fieldValues[i][10], fieldValues[i][8], fieldValues[i][7])  # bands B7, B5, B4 for Landsat 8
-                values = values + ",'" + username + "','" + str(datetime.datetime.now()) + "'," + str(h) + "," + str(s) + "," + str(v) + "),"
+                ndvi = (fieldValues[i][8]- fieldValues[i][7])/(fieldValues[i][8]+ fieldValues[i][7])
+                ndwi = (fieldValues[i][8]- fieldValues[i][9])/(fieldValues[i][8]+ fieldValues[i][9])
+                values = values + ",'" + username + "','" + str(datetime.datetime.now()) + "'," + str(h) + "," + str(s) + "," + str(v) + "," + str(ndvi) + "," + str(ndwi) + "),"
             sql = insertinto + values[:-1]
 #             return sql
             conn = dbconnect("species_especies_schema")
