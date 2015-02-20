@@ -83,18 +83,14 @@ $def with (header, footer)
 			<h2><a name="understanding">Understanding the REST Services Directory</a></h2>
 			<div class="normal">
 				There are many ways in which the REST Services can be consumed and used from applications, websites and tools etc. REST, short for Representational State Transfer, provides a simple, open Web interface to services hosted by the Joint Research Centre.
-				All services exposed by the REST Services Directory are accessible through a hierarchy of endpoints or Uniform Resource Locators (URLs) for each service published at JRC. When using the REST Services, you typically start
-				a the root level showing all of the schemas available within the DOPA REST Services:
-			</div>
-			<!-- <div class="restimg"><img src='images/rest1.png'>
-			</div> -->
-			<div class="normal">
-				The next level down in the Services Directory is the schema level which shows you the names of all of the information services within that particular schema:
+				All services exposed by the REST Services Directory are accessible through a hierarchy of endpoints or Uniform Resource Locators (URLs) for each service published at JRC.</div>
+			<div class="normal"> When using the REST Services, you typically start a the root level which shows all of the databases that have REST Services. Clicking on one of these databases then shows you the next level down in the REST Services Directory which is the database schemas. 
+				These describe the thematic areas within that database where the services are located. Clicking on the schema then shows you all of the available REST Services that are available within that particular schema.
 			</div>
 			<!-- <div class="restimg"><img src='images/rest2.png'>
 			</div> -->
 			<div class="normal">
-				The final level in the REST Services hierarchy is the service level which includes detailed information on each individual service in the directory. This page includes a description of the service, the input and output parameters and some example calls.
+				The final level in the REST Services hierarchy is the service level itself which includes detailed information on each individual service in the directory. This page includes a description of the service, the input and output parameters and some example calls.
 				The url for the service page is the endpoint for the service and this is the address that you will use to consume the service. In order to consume the service you will also need to pass in a number of parameters which are described in the next section.
 			</div>
 			<!-- <div class="restimg"><img src='images/rest3.png'>
@@ -152,7 +148,7 @@ $def with (header, footer)
 				For example, the following REST Service call includes two parameters (one a mandatory integer and one an optional array of numbers) and returns a list of species for a particular protected area:
 			</div>
 			<div class='code'>
-				http://dopa-services.jrc.ec.europa.eu/services/especies/get_pa_species_list?wdpa_id=785&rlstatus=EN,CR
+				http://dopa-services.jrc.ec.europa.eu/services/ibex/especies/get_pa_species_list?wdpa_id=785&category=EN,CR
 			</div>
 			<h4><a name="sop">Standard optional parameters</a></h4>
 			<div class="normal">
@@ -226,13 +222,13 @@ $def with (header, footer)
 				For example, the following REST Service call includes values for all optional parameters :
 			</div>
 			<div class="code">
-				http://dopa-services.jrc.ec.europa.eu/services/especies/get_pa_species_list?wdpa_id=785&rlstatus=EN,CR&format=json&fields=iucn_species_id&sortfield=taxon&dplimit=3&includemetadata=true&parseparams=true&metadataname=md&rootname=r
+				http://dopa-services.jrc.ec.europa.eu/services/ibex/especies/get_pa_species_list?wdpa_id=785&category=EN,CR&format=json&fields=iucn_species_id&sortfield=taxon&dplimit=3&includemetadata=true&parseparams=true&metadataname=md&rootname=r
 			</div>
 			<h4><a name="spv">Specifying parameter values</a></h4>
 			<div class="normal">
 				Parameter values for the REST Service calls can be done by simply appending the parameter values to the end of the service end point as a set of key/value pairs preceeded by a question mark. There are example calls in each of the service pages that
 				show the syntax for calling a particular service (both using mandatory and optional parameters). All mandatory parameter values must be specified, and all data types must be adhered to otherwise the service call will fail. Parameters can be specified in any order (both mandatory and optional) and
-				any parameters whose names do not match those of the input/output parameters will return an error (unless the parseparams flag is set to false). If mandatory parameters are missing or values are invalid then the server will return an error. Finally, parameter values are case sensitive, e.g. rlstatus=VU and <i>not</i> rlstatus=vu.
+				any parameters whose names do not match those of the input/output parameters will return an error (unless the parseparams flag is set to false). If mandatory parameters are missing or values are invalid then the server will return an error. Finally, parameter values are case sensitive, e.g. category=VU and <i>not</i> category=vu.
 			</div>
 			<h3><a name="rr2">REST response</a></h3>
 			<div class="normal">
@@ -499,7 +495,7 @@ $def with (header, footer)
 				<br/>
 				&nbsp;&nbsp;&nbsp;require(["dojo/request/script", "dojo/_base/array", "dojo/dom"], function(script, arrayUtil, dom) {
 				<br/>
-				&nbsp;&nbsp;&nbsp;&nbsp;script.get("http://dopa-services.jrc.ec.europa.eu/services/especies/get_pa_species_list?wdpa_id=785&rlstatus=EN,VU", {
+				&nbsp;&nbsp;&nbsp;&nbsp;script.get("http://dopa-services.jrc.ec.europa.eu/services/ibex/especies/get_pa_species_list?wdpa_id=785&category=EN,VU", {
 				<br/>
 				&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;jsonp : "callback"
 				<br/>
@@ -675,7 +671,7 @@ $def with (header, footer)
 					Click on 'From Other Sources' and select 'From XML Data Import'
 				</li>
 				<li>
-					In the File name text box, enter the endpoint of the REST service that contains the data you require - this is shown in the Example Calls section of the Service Page (e.g. http://dopa-services.jrc.ec.europa.eu/services/especies/get_pa_species_list?wdpa_id=785&format=xml)
+					In the File name text box, enter the endpoint of the REST service that contains the data you require - this is shown in the Example Calls section of the Service Page (e.g. http://dopa-services.jrc.ec.europa.eu/services/ibex/especies/get_pa_species_list?wdpa_id=785&format=xml)
 				</li>
 				<li>
 					Click Open and when prompted select where you want to put the data

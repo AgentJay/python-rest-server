@@ -1,18 +1,17 @@
-$def with (schemas, header, footer)
+$def with (dsn, schemas, header, footer)
 <html>
 	<head>
-		<title>DOPA Web Services Sandbox</title>
-		<link rel="stylesheet" type="text/css" href="../styles/styles.css" />
+		<title>DOPA REST Services Directory</title>
+		<link rel="stylesheet" type="text/css" href="../../styles/styles.css" />
 	</head> 
 	<body>
 		$:header
-		<div class="strong">The DOPA REST Services Directory has been moved to a new url available at <a href="../rest/">http://dopa-services.jrc.ec.europa.eu/rest/</a>. Please update any bookmarks. The purpose of this page is as a sandbox area where developers can publish and try new services before they are validated and made available through the public services directory.</div>
-		<div class="breadcrumb">Schemas</div>
+		<div class="breadcrumb"><a href="../">Databases&nbsp;&nbsp;</a> | &nbsp;&nbsp;$dsn</div>
 		$if schemas:
-			<table class="table" cellspacing="0"><tr><th>Schema</th><th>Description</th><th>More information</th></tr>
+			<table class="table" cellspacing="0"><tr><th>Schema</th></tr>
 			$for schema in schemas:
 				$ schemaurl = "http://" + schema['name'] +  ".jrc.ec.europa.eu/"
-				<tr><td><a href="$schema['name']/">$schema['name'][:1]$schema['name'][1:2].upper()$schema['name'][2:]</a></td><td>$schema['description']</td><td><a href="$schemaurl" target="_new">$schemaurl</a></td></tr>
+				<tr><td><a href="$schema['name']/">$schema['name']</a></td></tr>
 			</table>
 		$else:
 		    <p>No content</p>

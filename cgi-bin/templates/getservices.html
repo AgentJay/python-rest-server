@@ -1,12 +1,12 @@
-$def with (schemaname, services, header, footer)
+$def with (dsn, schemaname, services, header, footer)
 <html>
 	<head>
-		<title>DOPA Web Services</title>
-		<link rel="stylesheet" type="text/css" href="../../styles/styles.css" />
+		<title>DOPA REST Services Directory</title>
+		<link rel="stylesheet" type="text/css" href="../../../styles/styles.css" />
 	</head>
 	<body>
 		$:header
-		<div class="breadcrumb"><a href="../">Schemas&nbsp;&nbsp;</a> | &nbsp;&nbsp;$schemaname[:1]$schemaname[1:2].upper()$schemaname[2:]</div>
+		<div class="breadcrumb"><a href="../../">Databases&nbsp;&nbsp;</a> | &nbsp;&nbsp;<a href="../">$dsn&nbsp;&nbsp;</a> | &nbsp;&nbsp;$schemaname</div>
 		$if services:
 			<table class="table" cellspacing="0"><tr><th>Service</th><th>Description</th></tr>
 			$for service in services:

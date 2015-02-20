@@ -43,7 +43,7 @@ class getschemas:
     def GET(self):
         try:
             render = web.template.render('templates/')
-            conn = dbconnect("species_especies_schema")
+            conn = dbconnect("dopa")
             conn.cur.callproc("utils.dopa_rest_getschemas")
             schemas = conn.cur.fetchall()
             schemasdict = [dict([('name', schema[0]), ('description', schema[1])]) for schema in schemas]
@@ -58,7 +58,7 @@ class getservices:
     def GET(self, schemaname):
         try:
             render = web.template.render('templates/')
-            conn = dbconnect("species_especies_schema")
+            conn = dbconnect("dopa")
             conn.cur.callproc("utils.dopa_rest_getservices", [schemaname])
             services = conn.cur.fetchall()
             servicesdict = [dict([('name', service[0]), ('description', getservicedescription(service[1]))]) for service in services if isVisibleServiceName(service[0])]
@@ -72,7 +72,7 @@ class getservices:
 class getservice:
     def GET(self, schemaname, servicename):
         # if there are some parameters then the user is making a request for data 
-        conn = dbconnect("species_especies_schema")
+        conn = dbconnect("dopa")
         if web.input():
             return serviceRequest.callservice(conn, schemaname, servicename, web.ctx.query[1:])  # pass the querystring to preserve the order of the parameters - the web.input() collection does not preserve the order
         else:
@@ -200,7 +200,7 @@ class downloadFile():
 class updatehsv():
     def GET(self):
         hsv = web.input()['hsv']
-        conn = dbconnect("species_especies_schema")
+        conn = dbconnect("dopa")
         conn.cur.execute("UPDATE especies.gee_training_data SET hue = (gethsv(band" + hsv[0] + ",band" + hsv[1] + ",band" + hsv[2] + ")).hue")
         conn.cur.execute("UPDATE especies.gee_training_data SET saturation = (gethsv(band" + hsv[0] + ",band" + hsv[1] + ",band" + hsv[2] + ")).saturation")
         conn.cur.execute("UPDATE especies.gee_training_data SET val = (gethsv(band" + hsv[0] + ",band" + hsv[1] + ",band" + hsv[2] + ")).val")
@@ -365,7 +365,7 @@ class createValidationSites:  # http://dopa-services.jrc.it/gee/createValidation
                 values = values + ",'" + username + "','" + str(datetime.datetime.now()) + "'," + str(h) + "," + str(s) + "," + str(v) + "," + str(ndvi) + "," + str(ndwi) + "),"
             sql = insertinto + values[:-1]
 #             return sql
-            conn = dbconnect("species_especies_schema")
+            conn = dbconnect("dopa")
             conn.cur.execute(sql)
             responsejson = json.dumps({'rowcount':conn.cur.rowcount})
             return serviceRequest.getJsonResponse(responsejson)

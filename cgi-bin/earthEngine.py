@@ -66,7 +66,7 @@ def getGEEBandNames(bands, sensor):  # gets the corresponding gee band names fro
         
 def getImage(ll_x, ll_y, ur_x, ur_y, crs, width, height, layerParameters):  # main method to retrieve a url for an image generated from google earth engine 
 #     logging.basicConfig(filename='../../htdocs/mstmp/earthEngine.log', level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s',)
-    authenticate()
+    authenticate_live()
     region = getBoundingBoxLL(ll_x, ll_y, ur_x, ur_y, crs)
     if layerParameters['sceneid'] == 'collection':
         # GET A COLLECTION TO CREATE AN IMAGE FOR
@@ -133,7 +133,7 @@ def getSceneImage(scene, sensorinfo, region, width, height, layerParameters):
             return output_thumbnail
         # FINAL STEP IS THE DETECTION PROCESS IF ANY
         if 'detectExpression' in layerParameters.keys():
-            if "b('h')" in layerParameters['detectExpression']:
+            if "b('hue')" in layerParameters['detectExpression']:
                 detectionInput = convertToHsv(scene, layerParameters["hsvbands"])  # convert to hsv
             else:
                 detectionInput = scene
@@ -178,22 +178,7 @@ def illuminationCorrection(image):
         return "Google Earth Engine Error: " + str(sys.exc_info())        
 
 def rgbToHsv(image):
-    # Value computation
-    maxRGB = image.reduce(ee.Reducer.max())
-    minRGB = image.reduce(ee.Reducer.min())
-    value = maxRGB
-    # Saturation computation
-    saturation = value.subtract(minRGB).divide(value)
-    # Hue computation
-    g_b = image.select(['g'], ['g_b']).subtract(image.select('b'))
-    b_r = image.select(['b'], ['b_r']).subtract(image.select('r'))
-    r_g = image.select(['r'], ['r_g']).subtract(image.select('g'))
-    hue_input = ee.Image([minRGB, image, value.select(['max'], ['value']), g_b, b_r, r_g])
-    hueRed = hue_input.expression("(b('value')==b('r'))*(((60*(b('g_b')/(b('value')-b('min'))))+360)%360)")
-    hueGreen = hue_input.expression("(b('value')==b('g'))*((60*(b('b_r')/(b('value')-b('min'))))+120)")
-    hueBlue = hue_input.expression("(b('value')==b('b'))*((60*(b('r_g')/(b('value')-b('min'))))+240)")
-    hue = ee.Image([hueRed, hueGreen, hueBlue]).reduce(ee.Reducer.max())
-    return ee.Image([hue.select(['max'], ['h']), saturation.select(['max'], ['s']), value.select(['max'], ['v'])])
+    return image.select(["r","g","b"]).rgbtohsv().multiply(ee.Image([360, 1, 1]))
 
 def convertToHsv(image, bands):
     try:

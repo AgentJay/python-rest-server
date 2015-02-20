@@ -1,0 +1,20 @@
+$def with (dsns, header, footer)
+<html>
+	<head>
+		<title>DOPA REST Services Directory</title>
+		<link rel="stylesheet" type="text/css" href="../styles/styles.css" />
+	</head> 
+	<body>
+		$:header
+		<div class="breadcrumb">Databases</div>
+		$if dsns:
+			<table class="table" cellspacing="0"><tr><th>Database</th></tr>
+			$for dsn in dsns:
+				$ dsnurl = "http://" + dsn +  ".jrc.ec.europa.eu/"
+				<tr><td><a href="$dsn/">$dsn</a></td></tr>
+			</table>
+		$else:
+		    <p>No content</p>
+		$:footer
+	</body>
+</html>

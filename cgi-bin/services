@@ -4,7 +4,7 @@ import web, sys, re, datetime, urllib, select, psycopg2, ast, pycas, serviceRequ
 from serviceRequest import DopaServicesError
 from urlparse import parse_qs
 from psycopg2 import ProgrammingError, OperationalError
-from dbconnect import dbconnect
+from dbconnect import dbconnect, connectionDSN
 
 #=====================  CONSTANTS  ==================================================================================================================================================================================================================
 
@@ -21,25 +21,38 @@ urls = (
   "/ecasLogin", "ecasLogin",
   "/ecasProxyLogin", "ecasProxyLogin",
   "/ecasLogout", "ecasLogout",
-  "/(.+)/(.+)", "getservice",
-  "/(.+)/", "getservices",
-  "/", "getschemas"
+  "/(.+)/(.+)/(.+)", "getservice",
+  "/(.+)/(.+)/", "getservices",
+  "/(.+)/", "getschemas",
+  "/", "getdsns"
   )
 
 app = web.application(urls, locals()) 
 session = web.session.Session(app, web.session.DiskStore('../../htdocs/mstmp/restSessions'))  
 
-#=====================  GET SCHEMAS CLASS  ==================================================================================================================================================================================================================
+#=====================  GET PROVIDERS CLASS  ==================================================================================================================================================================================================================
 
-class getschemas:
+class getdsns:
     def GET(self):
         try:
             render = web.template.render('templates/')
-            conn = dbconnect("ibex")
+            return render.getdsns(sorted(connectionDSN.keys()), render.header(), render.footer())
+        
+        except (DopaServicesError, ProgrammingError, OperationalError):
+            return "DOPA Services Error: " + str(sys.exc_info())        
+
+
+#=====================  GET SCHEMAS CLASS  ==================================================================================================================================================================================================================
+
+class getschemas:
+    def GET(self, dsn):
+        try:
+            render = web.template.render('templates/')
+            conn = dbconnect(dsn)
             conn.cur.callproc("utils.dopa_rest_getschemas")
             schemas = conn.cur.fetchall()
             schemasdict = [dict([('name', schema[0]), ('description', schema[1])]) for schema in schemas]
-            return render.getschemas(schemasdict, render.header(), render.footer())
+            return render.getschemas(dsn, schemasdict, render.header(), render.footer())
         
         except (DopaServicesError, ProgrammingError, OperationalError):
             return "DOPA Services Error: " + str(sys.exc_info())
@@ -47,14 +60,14 @@ class getschemas:
 #=====================  GET SERVICES CLASS  ==================================================================================================================================================================================================================
 
 class getservices:
-    def GET(self, schemaname):
+    def GET(self, dsn, schemaname):
         try:
             render = web.template.render('templates/')
-            conn = dbconnect("ibex")
+            conn = dbconnect(dsn)
             conn.cur.callproc("utils.dopa_rest_getservices", [schemaname])
             services = conn.cur.fetchall()
             servicesdict = [dict([('name', service[0]), ('description', getservicedescription(service[1]))]) for service in services if isVisibleServiceName(service[0])]
-            return render.getservices(schemaname, servicesdict, render.header(), render.footer())
+            return render.getservices(dsn, schemaname, servicesdict, render.header(), render.footer())
 
         except (DopaServicesError, ProgrammingError, OperationalError):
             return "DOPA Services Error: " + str(sys.exc_info())
@@ -62,9 +75,9 @@ class getservices:
 #=====================  GET SERVICE CLASS  ==================================================================================================================================================================================================================
 
 class getservice:
-    def GET(self, schemaname, servicename):
+    def GET(self, dsn, schemaname, servicename):
         # if there are some parameters then the user is making a request for data 
-        conn = dbconnect("ibex")
+        conn = dbconnect(dsn)
         if web.input():
             return serviceRequest.callservice(conn, schemaname, servicename, web.ctx.query[1:])  # pass the querystring to preserve the order of the parameters - the web.input() collection does not preserve the order
         else:
@@ -113,7 +126,7 @@ class getservice:
 #                return params
                 # create a dictionary containing the parameter information
                 paramsdict = [dict([('mode', params[i][2]), ('name', params[i][3]), ('type', gettypefrompostgresql(params[i][4])), ('description', paramdesc[i]), ('default', paramdefs[i])]) for i in range(len(params))]
-                return render.getservice(schemaname, servicename, getservicedescription(params[0][1]), [p for p in paramsdict if (p['mode'] == 'IN')], [p for p in paramsdict if (p['mode'] == 'OUT')], render.header(), render.footer())
+                return render.getservice(dsn, schemaname, servicename, getservicedescription(params[0][1]), [p for p in paramsdict if (p['mode'] == 'IN')], [p for p in paramsdict if (p['mode'] == 'OUT')], render.header(), render.footer())
             
             except (DopaServicesError, ProgrammingError, OperationalError):
                 return "DOPA Services Error: " + str(sys.exc_info())
@@ -164,7 +177,7 @@ def getservicedescription(fulldescription):
         return fulldescription
 
 def isVisibleServiceName(servicename):
-    if (servicename[:3] in ['get', 'set']) | (servicename[:6] in ['update','insert', 'delete']) | ((servicename[:4] in ['_get', '_set']) & (web.ctx.host == 'dopa-services.jrc.it')) | ((servicename[:7] in ['_update','_insert', '_delete']) & (web.ctx.host == 'dopa-services.jrc.it')):  
+    if (servicename[:3] in ['get', 'set']) | (servicename[:6] in ['update', 'insert', 'delete']) | ((servicename[:4] in ['_get', '_set']) & (web.ctx.host == 'dopa-services.jrc.it')) | ((servicename[:7] in ['_update', '_insert', '_delete']) & (web.ctx.host == 'dopa-services.jrc.it')):  
         return True
     else:
         return False
