@@ -379,9 +379,9 @@ def authenticate_live():
     ee.Initialize(ee.ServiceAccountCredentials(_google_earth_engine.MY_SERVICE_ACCOUNT, _google_earth_engine.MY_PRIVATE_KEY_FILE))
 
 def GetCredentials():
-  # Read persistent credentials from /home/webuser/.config/earthengine/credentials
+  # Read persistent credentials from /srv/www/dopa-services/cgi-bin/google earth engine/credentials
   try:
-    tokens = json.load(open("../../../../../home/webuser/.config/earthengine/credentials"))
+    tokens = json.load(open("../../../../../srv/www/dopa-services/cgi-bin/google earth engine/credentials"))
     refresh_token = tokens['refresh_token']
     return oauth2client.client.OAuth2Credentials(None, OAuthInfo.CLIENT_ID, OAuthInfo.CLIENT_SECRET, refresh_token, None, 'https://accounts.google.com/o/oauth2/token', None)
   except IOError:
