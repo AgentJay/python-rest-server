@@ -72,7 +72,7 @@ def getGEEBandNames(bands, sensor):  # gets the corresponding gee band names fro
         
 def getImage(ll_x, ll_y, ur_x, ur_y, crs, width, height, layerParameters):  # main method to retrieve a url for an image generated from google earth engine 
 #     logging.basicConfig(filename='../../htdocs/mstmp/earthEngine.log', level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s',)
-    authenticate_live()
+    authenticate()
     region = getBoundingBoxLL(ll_x, ll_y, ur_x, ur_y, crs)
     if layerParameters['sceneid'] == 'collection':
         # GET A COLLECTION TO CREATE AN IMAGE FOR
@@ -373,11 +373,6 @@ def authenticate():
     credentials = GetCredentials()
     ee.Initialize(credentials)
     
-def authenticate_live():
-    # initialisation
-    _google_earth_engine = google_earth_engine()
-    ee.Initialize(ee.ServiceAccountCredentials(_google_earth_engine.MY_SERVICE_ACCOUNT, _google_earth_engine.MY_PRIVATE_KEY_FILE))
-
 def GetCredentials():
   # Read persistent credentials from /srv/www/dopa-services/cgi-bin/google earth engine/credentials
   try:

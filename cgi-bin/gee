@@ -28,148 +28,11 @@ urls = (
   "/WMS_image", "gee_WMS_image",
   "/WMS_sequence", "gee_WMS_sequence",
   "/WMS_video", "gee_WMS_video",
-  "/svg2png", "svg2png",
-  "/(.+)/(.+)", "getservice",
-  "/(.+)/", "getservices",
-  "/", "getschemas"
+  "/svg2png", "svg2png"
 )
 
 app = web.application(urls, locals()) 
 session = web.session.Session(app, web.session.DiskStore('../../htdocs/mstmp/restSessions'))  
-
-#=====================  GET SCHEMAS CLASS  ==================================================================================================================================================================================================================
-
-class getschemas:
-    def GET(self):
-        try:
-            render = web.template.render('templates/')
-            conn = dbconnect("dopa")
-            conn.cur.callproc("utils.dopa_rest_getschemas")
-            schemas = conn.cur.fetchall()
-            schemasdict = [dict([('name', schema[0]), ('description', schema[1])]) for schema in schemas]
-            return render.getschemas(schemasdict, render.header(), render.footer())
-        
-        except (DopaServicesError, ProgrammingError, OperationalError):
-            return "DOPA Services Error: " + str(sys.exc_info())
-
-#=====================  GET SERVICES CLASS  ==================================================================================================================================================================================================================
-
-class getservices:
-    def GET(self, schemaname):
-        try:
-            render = web.template.render('templates/')
-            conn = dbconnect("dopa")
-            conn.cur.callproc("utils.dopa_rest_getservices", [schemaname])
-            services = conn.cur.fetchall()
-            servicesdict = [dict([('name', service[0]), ('description', getservicedescription(service[1]))]) for service in services if isVisibleServiceName(service[0])]
-            return render.getservices(schemaname, servicesdict, render.header(), render.footer())
-
-        except (DopaServicesError, ProgrammingError, OperationalError):
-            return "DOPA Services Error: " + str(sys.exc_info())
-
-#=====================  GET SERVICE CLASS  ==================================================================================================================================================================================================================
-
-class getservice:
-    def GET(self, schemaname, servicename):
-        # if there are some parameters then the user is making a request for data 
-        conn = dbconnect("dopa")
-        if web.input():
-            return serviceRequest.callservice(conn, schemaname, servicename, web.ctx.query[1:])  # pass the querystring to preserve the order of the parameters - the web.input() collection does not preserve the order
-        else:
-            try:
-                render = web.template.render('templates/')
-                conn.cur.callproc("utils.dopa_rest_getservice", [servicename])
-                params = conn.cur.fetchall()
-                if (len(params) == 0):
-                    raise DopaServicesError('No parameters found for service ' + servicename)
-                
-                # parse the description text to get the parameters descriptions - the parameter descriptions are encoded using {<param_desc>$<param_desc>$<param_desc> etc}
-                paramdesc = []
-                paramdescgroups = re.search('{.*}', params[0][1].replace("\n", ""))  # replace line feeds otherwise the regex doesnt work
-                if (paramdescgroups):
-                    paramdesc = paramdescgroups.group(0)[1:-1].split("$")
-                # fill in the parameter descriptions if they have not been written
-                paramdesc[len(paramdesc):] = ['No description' for i in range(len(params) - len(paramdesc))] 
-                
-                # parse the function definition for default parameter values
-                paramdefs = []
-                paramdefsstr = params[0][5]
-                if 'DEFAULT ' in paramdefsstr:
-                    # get the position of the parameter names in the parameter definition string
-                    pos = [paramdefsstr.find(param[3] + ' ') for param in params if (param[2] == 'IN')]
-                    # add on the length of the parameter definition to get the last parameter definition
-                    pos.append(len(paramdefsstr))
-                    # get the parameter definitions as a list
-                    paramdefs = [paramdefsstr[pos[i]:pos[i + 1]] for i in range(len(pos) - 1)]
-                    # remove any trailing spaces with commas
-                    paramdefs = [(p[:-2] if p[-2:] == ', ' else p) for p in paramdefs]
-                    # remove the DEFAULT statement
-                    paramdefs = [(p[p.find('DEFAULT') + 8:] if 'DEFAULT' in p else '') for p in paramdefs]
-                    # remove the  ARRAY[] statement
-                    paramdefs = [(p[6:-1] if 'ARRAY' in p else p) for p in paramdefs]
-                    # remove any typecast symbols, e.g. ::text
-#                    paramdefs = [p[:p.find('::')] if '::' in p else p for p in paramdefs] # some are complicated, e.g. ['wdpa_id integer, ', "rlstatus character[] DEFAULT ARRAY['EN'::text, 'CR'::text, 'VU'::text, 'NT'::text, 'LC'::text, 'EX'::text, 'EW'::text, 'DD'::text]"]
-                    paramdefs = [p.replace("::text", "") for p in paramdefs]
-                    paramdefs = [p.replace("::integer", "") for p in paramdefs]
-                    paramdefs = [p.replace("::character varying", "") for p in paramdefs]
-                    # remove any quotes, e.g. 'CR','DD' -> CR, DD
-                    paramdefs = [p.replace("'", "") for p in paramdefs]
-                    # remove any spaces, e.g. CR, DD -> CR,DD
-                    paramdefs = [p.replace(" ", "") for p in paramdefs]
-                # fill in the paramdefs
-                paramdefs[len(paramdefs):] = ['' for i in range(len(params) - len(paramdefs))]
-#                return params
-                # create a dictionary containing the parameter information
-                paramsdict = [dict([('mode', params[i][2]), ('name', params[i][3]), ('type', gettypefrompostgresql(params[i][4])), ('description', paramdesc[i]), ('default', paramdefs[i])]) for i in range(len(params))]
-                return render.getservice(schemaname, servicename, getservicedescription(params[0][1]), [p for p in paramsdict if (p['mode'] == 'IN')], [p for p in paramsdict if (p['mode'] == 'OUT')], render.header(), render.footer())
-            
-            except (DopaServicesError, ProgrammingError, OperationalError):
-                return "DOPA Services Error: " + str(sys.exc_info())
-
-#=====================  HELPER FUNCTIONS  ==================================================================================================================================================================================================================
-                                   
-def gettypefrompostgresql(postgresqltype):  # returns a string representation of the SQL data type - this is used to show the data type in the html pages
-    if (postgresqltype.lower() in ['integer', 'bigint']): return "integer"
-    elif (postgresqltype.lower() in ['boolean']): return "boolean"
-    elif (postgresqltype.lower() in ['single precision']): return "single"
-    elif (postgresqltype.lower() in ['double precision']): return "double"
-    elif (postgresqltype.lower() in ['numeric']): return "numeric"
-    elif (postgresqltype.lower() in ['array']): return "array"
-    elif (postgresqltype.lower() in ['character varying', 'text']): return "string"
-    elif (postgresqltype.lower() in ['date']): return "date"
-    elif (postgresqltype.lower() in ['timestamp with time zone']): return "datetime"
-    else: return "unknown"
-
-def getservicedescription(fulldescription):
-    pos = fulldescription.find("{")
-    if pos > -1:
-        return fulldescription[:fulldescription.find("{")]
-    else:
-        return fulldescription
-
-def isVisibleServiceName(servicename):
-    if (servicename[:3] in ['get', 'set']) | (servicename[:6] in ['update', 'insert', 'delete']) | ((servicename[:4] in ['_get', '_set']) & (web.ctx.host == 'dopa-services.jrc.it')) | ((servicename[:7] in ['_update', '_insert', '_delete']) & (web.ctx.host == 'dopa-services.jrc.it')):  
-        return True
-    else:
-        return False
-
-def runHadoopQuery(conn, functionname, params): 
-    try:
-        conn.cur.execute("INSERT INTO hadoop_jobs(id, functionname, params) VALUES (DEFAULT,'" + functionname + "','" + params['quadkey'] + "') RETURNING id")
-        job_id = conn.cur.fetchone()[0]  # this is the job_id value from the table
-        conn.cur.execute("LISTEN hadoop_job_complete;")  # listen for the results to be posted back
-        conn.cur.execute("NOTIFY hadoop_job_request,'" + str(job_id) + "," + functionname + "," + params['quadkey'] + "'")
-        while 1:
-            if select.select([conn.conn], [], [], 5) == ([], [], []):
-                assert 'nothing'
-            else:
-                conn.conn.poll()
-                while conn.conn.notifies:  # results posted back
-                    conn.cur.execute("UNLISTEN hadoop_job_complete;")
-                    resultsDict = ast.literal_eval(conn.conn.notifies.pop().payload)
-                    return resultsDict['results']
-    except (DopaServicesError, OperationalError):
-        return "DOPA Services Error: " + str(sys.exc_info())
 
 
 class createDownloadFile():
@@ -200,7 +63,7 @@ class downloadFile():
 class updatehsv():
     def GET(self):
         hsv = web.input()['hsv']
-        conn = dbconnect("dopa")
+        conn = dbconnect("gee")
         conn.cur.execute("UPDATE especies.gee_training_data SET hue = (gethsv(band" + hsv[0] + ",band" + hsv[1] + ",band" + hsv[2] + ")).hue")
         conn.cur.execute("UPDATE especies.gee_training_data SET saturation = (gethsv(band" + hsv[0] + ",band" + hsv[1] + ",band" + hsv[2] + ")).saturation")
         conn.cur.execute("UPDATE especies.gee_training_data SET val = (gethsv(band" + hsv[0] + ",band" + hsv[1] + ",band" + hsv[2] + ")).val")
@@ -349,7 +212,7 @@ class createValidationSites:  # http://dopa-services.jrc.it/gee/createValidation
                 raise DopaServicesError('No validation sites created. Google Earth Engine did not have any pixel data for the passed geometries')
             fields = data[0]  # get the fields returned from GEE
             fieldValues = data[1:]  # get the field values returned from GEE
-            insertinto = "INSERT INTO gee_training_data(land_cover, lat, lng, sensor, sceneid, image_date, band1, band2, band3, band4, band5, band6, band7, band8, band9, band10, band11, bqa, username, entry_date, hue, saturation,value,ndvi,ndwi) VALUES"
+            insertinto = "INSERT INTO especies.gee_training_data(land_cover, lat, lng, sensor, sceneid, image_date, band1, band2, band3, band4, band5, band6, band7, band8, band9, band10, band11, bqa, username, entry_date, hue, saturation,value,ndvi,ndwi) VALUES"
             values = ""
             for i in range(len(data[1:])):  # create the VALUES (''),('') statement
                 values = values + "('" + lc[i] + "'," + str(fieldValues[i][2]) + "," + str(fieldValues[i][1]) + ",'" + sensor + "','" + sceneid + "','" + scenedate + "'"
@@ -364,8 +227,7 @@ class createValidationSites:  # http://dopa-services.jrc.it/gee/createValidation
                 ndwi = (fieldValues[i][8]- fieldValues[i][9])/(fieldValues[i][8]+ fieldValues[i][9])
                 values = values + ",'" + username + "','" + str(datetime.datetime.now()) + "'," + str(h) + "," + str(s) + "," + str(v) + "," + str(ndvi) + "," + str(ndwi) + "),"
             sql = insertinto + values[:-1]
-#             return sql
-            conn = dbconnect("dopa")
+            conn = dbconnect("gee")
             conn.cur.execute(sql)
             responsejson = json.dumps({'rowcount':conn.cur.rowcount})
             return serviceRequest.getJsonResponse(responsejson)

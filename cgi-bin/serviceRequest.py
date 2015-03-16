@@ -197,10 +197,15 @@ def callservice(conn, schemaname, servicename, querystring):
             return "<html><head></head><body>" + htmlData + "</body></html>"
         
         elif format == 'csv':
-#             web.header("Content-Type", "text/csv") # downloads a file 
             data = [[row[col] for col in range(fieldcount) if (col in colsRequired)] for row in rows]
             colnames = ",".join([f["name"] for f in metadatadict["fields"]]) + "\n"
-            output = colnames + "\n".join([p for p in [",".join(h) for h in [[getStringValue(col) for col in row] for row in data]]]) 
+            output = colnames + "\n".join([p for p in [",".join(h) for h in [[getStringValue(col) for col in row] for row in data]]])
+            filename = "dataDownload.csv" #hardcoded for now
+            f = open(r'../../htdocs/mstmp/' + filename, 'wb')
+            f.write(output)
+            f.close()
+            web.header("Content-Type", "text/plain")
+            web.header("Content-Disposition", "attachment; filename=%s" % filename)
             return output
 
         elif format == 'pdf':    
