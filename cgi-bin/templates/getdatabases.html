@@ -1,0 +1,19 @@
+$def with (names, databases, header, footer)
+<html>
+	<head>
+		<title>JRC REST Services Directory</title>
+		<link rel="stylesheet" type="text/css" href="../styles/styles.css" />
+	</head> 
+	<body>
+		$:header
+		<div class="breadcrumb">Databases</div>
+		$if names:
+			<table class="table" cellspacing="0"><tr><th style="width: 15%">Database</th><th>Description</th></tr>
+			$for name in names:
+				<tr><td><a href="$name/">$name</a></td><td>$databases[name]['description']</td></tr>
+			</table>
+		$else:
+		    <p>No content</p>
+		$:footer
+	</body>
+</html>

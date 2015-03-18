@@ -1,10 +1,10 @@
 #!/usr/bin/env python 
 # provides a GUI to the REST Services available at JRC that shows you the services based on the schemas that are within 
 import web, sys, re, datetime, urllib, select, psycopg2, ast, pycas, serviceRequest
-from serviceRequest import DopaServicesError
+from serviceRequest import RESTServicesError
 from urlparse import parse_qs
 from psycopg2 import ProgrammingError, OperationalError
-from dbconnect import dbconnect, connectionDSN
+from dbconnect import dbconnect, databases
 
 #=====================  CONSTANTS  ==================================================================================================================================================================================================================
 
@@ -24,7 +24,7 @@ urls = (
   "/(.+)/(.+)/(.+)", "getservice",
   "/(.+)/(.+)/", "getservices",
   "/(.+)/", "getschemas",
-  "/", "getdsns"
+  "/", "getdatabases"
   )
 
 app = web.application(urls, locals()) 
@@ -32,11 +32,11 @@ session = web.session.Session(app, web.session.DiskStore('../../htdocs/mstmp/res
 
 #=====================  GET PROVIDERS CLASS  ==================================================================================================================================================================================================================
 
-class getdsns:
+class getdatabases:
     def GET(self):
         try:
             render = web.template.render('templates/')
-            return render.getdsns(sorted(connectionDSN.keys()), render.header(), render.footer())
+            return render.getdatabases(sorted(databases),databases, render.header(), render.footer())
         
         except (DopaServicesError, ProgrammingError, OperationalError):
             return "DOPA Services Error: " + str(sys.exc_info())        
@@ -45,14 +45,14 @@ class getdsns:
 #=====================  GET SCHEMAS CLASS  ==================================================================================================================================================================================================================
 
 class getschemas:
-    def GET(self, dsn):
+    def GET(self, database):
         try:
             render = web.template.render('templates/')
-            conn = dbconnect(dsn)
+            conn = dbconnect(database)
             conn.cur.callproc("utils.dopa_rest_getschemas")
             schemas = conn.cur.fetchall()
             schemasdict = [dict([('name', schema[0]), ('description', schema[1])]) for schema in schemas]
-            return render.getschemas(dsn, schemasdict, render.header(), render.footer())
+            return render.getschemas(database, schemasdict, render.header(), render.footer())
         
         except (DopaServicesError, ProgrammingError, OperationalError):
             return "DOPA Services Error: " + str(sys.exc_info())
@@ -60,14 +60,14 @@ class getschemas:
 #=====================  GET SERVICES CLASS  ==================================================================================================================================================================================================================
 
 class getservices:
-    def GET(self, dsn, schemaname):
+    def GET(self, database, schemaname):
         try:
             render = web.template.render('templates/')
-            conn = dbconnect(dsn)
+            conn = dbconnect(database)
             conn.cur.callproc("utils.dopa_rest_getservices", [schemaname])
             services = conn.cur.fetchall()
             servicesdict = [dict([('name', service[0]), ('description', getservicedescription(service[1]))]) for service in services if isVisibleServiceName(service[0])]
-            return render.getservices(dsn, schemaname, servicesdict, render.header(), render.footer())
+            return render.getservices(database, schemaname, servicesdict, render.header(), render.footer())
 
         except (DopaServicesError, ProgrammingError, OperationalError):
             return "DOPA Services Error: " + str(sys.exc_info())
@@ -75,9 +75,9 @@ class getservices:
 #=====================  GET SERVICE CLASS  ==================================================================================================================================================================================================================
 
 class getservice:
-    def GET(self, dsn, schemaname, servicename):
+    def GET(self, database, schemaname, servicename):
         # if there are some parameters then the user is making a request for data 
-        conn = dbconnect(dsn)
+        conn = dbconnect(database)
         if web.input():
             return serviceRequest.callservice(conn, schemaname, servicename, web.ctx.query[1:])  # pass the querystring to preserve the order of the parameters - the web.input() collection does not preserve the order
         else:
@@ -126,7 +126,7 @@ class getservice:
 #                return params
                 # create a dictionary containing the parameter information
                 paramsdict = [dict([('mode', params[i][2]), ('name', params[i][3]), ('type', gettypefrompostgresql(params[i][4])), ('description', paramdesc[i]), ('default', paramdefs[i])]) for i in range(len(params))]
-                return render.getservice(dsn, schemaname, servicename, getservicedescription(params[0][1]), [p for p in paramsdict if (p['mode'] == 'IN')], [p for p in paramsdict if (p['mode'] == 'OUT')], render.header(), render.footer())
+                return render.getservice(database, schemaname, servicename, getservicedescription(params[0][1]), [p for p in paramsdict if (p['mode'] == 'IN')], [p for p in paramsdict if (p['mode'] == 'OUT')], render.header(), render.footer())
             
             except (DopaServicesError, ProgrammingError, OperationalError):
                 return "DOPA Services Error: " + str(sys.exc_info())

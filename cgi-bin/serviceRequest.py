@@ -9,8 +9,8 @@ from decimal import Decimal
 from lxml import etree
 from types import *
 
-class DopaServicesError(Exception):
-    """Exception Class that allows the DOPA Services REST Server to raise custom exceptions"""
+class RESTServicesError(Exception):
+    """Exception Class that allows the REST Server to raise custom exceptions"""
     pass  
 
 class CustomJSONEncoder(json.JSONEncoder):
@@ -50,7 +50,7 @@ def callservice(conn, schemaname, servicename, querystring):
             del(params['callback'])
         # check if the service name is valid
         if not (isValidServiceName(servicename)):
-            raise DopaServicesError('Invalid servicename')
+            raise RESTServicesError('Invalid servicename')
         
         # authorise with ecas if needed
 #         if requiresAuthentication(servicename):
@@ -91,7 +91,7 @@ def callservice(conn, schemaname, servicename, querystring):
             # check that all parameters are correct
             invalidparamnames = [n for n in params.keys() if n not in functionparamnames]
             if invalidparamnames and parseparams == 'true':
-                raise DopaServicesError('Invalid parameters: ' + ",".join(invalidparamnames))
+                raise RESTServicesError('Invalid parameters: ' + ",".join(invalidparamnames))
             # put the input parameters in the right order 
             params = OrderedDict([(n, params[n]) for n in functionparamnames if n in params.keys()])
             
@@ -126,7 +126,7 @@ def callservice(conn, schemaname, servicename, querystring):
         fieldcount = len(fields)
         fieldsdict = [dict([("name", d.name), ("type", gettypefromtypecode(d.type_code))]) for d in conn.cur.description if (d.name in fields)]
         if len(fieldsdict) != len(fields):
-            raise DopaServicesError('Invalid output fields')
+            raise RESTServicesError('Invalid output fields')
         metadatadict = OrderedDict([("duration", str(t2 - t1)), ("error", None), ("idProperty", conn.cur.description[0].name), ("successProperty", 'success'), ("totalProperty", 'recordCount'), ("success", True), ("recordCount", int(conn.cur.rowcount)), ("root", rootName), ("fields", fieldsdict)])    
         
         # RECORDS SECTION OF THE RESPONSE
@@ -186,7 +186,7 @@ def callservice(conn, schemaname, servicename, querystring):
             _amazon_ses = amazon_ses()
             amazonSes = AmazonSES(_amazon_ses.AccessKeyID, _amazon_ses.SecretAccessKey)  # use the amazon simple email service api account
             message = EmailMessage()
-            message.subject = 'DOPA Information Request'
+            message.subject = 'JRC REST Services Information Request'
             message.bodyHtml = getResultsAsHTML(rows, fieldcount, colsRequired, metadatadict) 
             result = amazonSes.sendEmail('a.cottam@gmail.com', 'a.cottam@gmail.com', message)  # to me
             return result 
@@ -215,9 +215,9 @@ def callservice(conn, schemaname, servicename, querystring):
             return pdfkit.from_string(htmlData.decode('utf8'), False, configuration=config, options={'quiet': '', 'encoding': "UTF-8"})
         
         else:
-            raise DopaServicesError('Invalid response format: ' + format)
+            raise RESTServicesError('Invalid response format: ' + format)
 
-    except (DopaServicesError, DataError, ProgrammingError, exceptions.TypeError, IndexError, IntegrityError, AmazonError, OperationalError) as e:
+    except (RESTServicesError, DataError, ProgrammingError, exceptions.TypeError, IndexError, IntegrityError, AmazonError, OperationalError) as e:
 #        web.webapi.internalerror() #returns a internal server error 500
         t2 = datetime.datetime.now()
         msg = "There was an error sending the email. Make sure that the email address has been verified in Amazon Simple Email Services" if type(e) == AmazonError else e.message
