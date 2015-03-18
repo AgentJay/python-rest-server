@@ -2,7 +2,7 @@
 # Google Earth Engine Python API wrapper to allow clients to use the results of the GEE API
 import web, json, sys, re, datetime, urllib, psycopg2, ast, ee, uuid, cPickle, logging, earthEngine, glob, cairosvg, serviceRequest
 from earthEngine import GoogleEarthEngineError
-from serviceRequest import DopaServicesError
+from serviceRequest import RESTServicesError
 from ee import EEException
 from psycopg2 import ProgrammingError, DataError, IntegrityError, extensions, OperationalError
 from dbconnect import dbconnect, google_earth_engine

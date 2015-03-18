@@ -1,7 +1,7 @@
 #!/usr/bin/env python 
 # provides a GUI to the REST Services available at JRC that shows you the services based on the schemas that are within 
 import web, sys, re, datetime, urllib, select, psycopg2, ast, pycas, serviceRequest
-from serviceRequest import DopaServicesError
+from serviceRequest import RESTServicesError
 from urlparse import parse_qs
 from psycopg2 import ProgrammingError, OperationalError
 from dbconnect import dbconnect
