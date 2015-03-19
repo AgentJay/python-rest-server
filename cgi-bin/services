@@ -28,7 +28,8 @@ urls = (
   )
 
 app = web.application(urls, locals()) 
-session = web.session.Session(app, web.session.DiskStore('../../htdocs/mstmp/restSessions'))  
+# session = web.session.Session(app, web.session.DiskStore('../../htdocs/mstmp/restSessions')) //causing Internal Server Errors 
+#e.g.  [Thu Mar 19 15:10:27 2015] [error] [client 139.191.170.67] OSError: [Errno 2] No such file or directory: '../../htdocs/mstmp/restSessions/fadb4414da20b8cf9201dcf90fcb4f15b8f71e60', referer: http://127.0.0.1:8020/species_validation_tool/index.html?wdpaid=785  
 
 #=====================  GET PROVIDERS CLASS  ==================================================================================================================================================================================================================
 
