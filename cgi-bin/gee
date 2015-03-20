@@ -1,11 +1,12 @@
 #!/usr/bin/env python 
 # Google Earth Engine Python API wrapper to allow clients to use the results of the GEE API
-import web, json, sys, re, datetime, urllib, psycopg2, ast, ee, uuid, cPickle, logging, earthEngine, glob, cairosvg, serviceRequest
+import web, json, sys, re, datetime, urllib, psycopg2, ast, ee, uuid, cPickle, logging, earthEngine, glob, cairosvg, serviceRequest, urllib
 from earthEngine import GoogleEarthEngineError
 from serviceRequest import RESTServicesError
 from ee import EEException
 from psycopg2 import ProgrammingError, DataError, IntegrityError, extensions, OperationalError
 from dbconnect import dbconnect, google_earth_engine
+from urlparse import parse_qs
 
 #=====================  CONSTANTS  ==================================================================================================================================================================================================================
 
@@ -15,6 +16,8 @@ WEBPY_COOKIE_NAME = "webpy_session_id"
 #=====================  URL HANDLERS  ==================================================================================================================================================================================================================
 
 urls = (
+  "/proxy_marinetraffic", "proxy_marinetraffic",
+  "/proxy_xenocanto", "proxy_xenocanto",
   "/createDownloadFile", "createDownloadFile",
   "/downloadFile", "downloadFile",
   "/updatehsv", "updatehsv",
@@ -33,6 +36,32 @@ urls = (
 
 app = web.application(urls, locals()) 
 session = web.session.Session(app, web.session.DiskStore('../../htdocs/mstmp/restSessions'))  
+
+class proxy_marinetraffic():
+    def GET(self):
+        params = dict([(q.split("=")[0], urllib.unquote(q.split("=")[1])) for q in web.ctx.query[1:].split("&")])
+        minlat = params['minlat'] # -17.447367
+        maxlat = params['maxlat'] 
+        minlon = params['minlon'] # 178.952866 fiji
+        maxlon = params['maxlon']
+        callback = params['callback']
+        fields = ["MMSI","LAT","LON","SPEED","COURSE","TIMESTAMP","SHIPNAME","SHIPTYPE","IMO","CALLSIGN","FLAG","CURRENT_PORT","LAST_PORT","LAST_PORT_TIME","DESTINATION","ETA","LENGTH","WIDTH","DRAUGHT","GRT","DWT","YEAR_BUILT"]
+        url = "http://services.marinetraffic.com/api/exportvessels/fccda29203b479d6d5e611f82001a9e5753760a3/MINLAT:" + minlat + "/MAXLAT:" + maxlat + "/MINLON:" + minlon + "/MAXLON:" + maxlon + "/timespan:10/protocol:json/msgtype:extended"
+        response = urllib.urlopen(url)
+        if response.read().index("NOT ENOUGH CREDITS FOR CALL")>0: #no more credits
+            response = [["240391000","-17.447367","178.952866","1","50","2012-04-18T21:10:00","MEGALOCHARI VII","52","9039949","SY 6064","GR","MYKONOS","MYKONOS","2012-04-18T17:13:00","MIKONOS","1900-01-01T00:00:00","27","9","48","265","183","1991"],["237106400","-17.448367","178.954866","0","0","2012-04-18T21:10:00","AGIA ELENI","31","0","SV4137","GR","MYKONOS","MYKONOS","2012-04-18T17:12:00","MYKONOS","2012-04-30T11:00:00","30","7","0"],["311029000","-17.445367","178.954266","132","40","2012-04-18T21:09:00","GREEN MAGNIFIC","79","9011492","C6VY3","BS","","SKAGEN","2012-02-21T18:34:00","ODESA","2012-04-21T20:00:00","136","16","75","5103","6116","1992"]]
+        structured = [[(fields[i],response[j][i]) for i in range(len(response[j]))] for j in range(len(response))]
+        web.header("Content-Type", "application/javascript")
+        return callback + '(' + json.dumps(dict(ships=[dict([(fields[i],response[j][i]) for i in range(len(response[j]))]) for j in range(len(response))])) + ")"
+
+class proxy_xenocanto():
+    def GET(self):
+        params = parse_qs(web.ctx.query[1:])
+        callback = params['callback'][0]
+        url = "http://www.xeno-canto.org/api/2/recordings?query=" + params['name'][0]
+        response = urllib.urlopen(url).read()
+        web.header("Content-Type", "application/javascript")
+        return callback + "(" + response + ")"
 
 
 class createDownloadFile():
